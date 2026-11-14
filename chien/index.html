@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Berger Blanc : la vie de chien</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#9fd0f0;font-family:system-ui,"Segoe UI",sans-serif;color:#fff;user-select:none}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;transition:filter .25s}
+  #hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,.7)}
+  #obj{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(20,30,20,.55);padding:8px 18px;border-radius:20px;font-size:18px;font-weight:600;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+  #timer{position:absolute;top:14px;right:18px;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+  #timer small{display:block;font-size:14px;font-weight:600;color:#ffd0a0}
+  #dir{position:absolute;top:62px;left:50%;transform:translateX(-50%);text-align:center;font-size:14px;font-weight:600}
+  #dirA{display:block;font-size:34px;line-height:36px;color:#ffe066}
+  #msg{position:absolute;top:32%;left:0;right:0;text-align:center;font-size:34px;font-weight:800;opacity:0}
+  #msg.big{font-size:90px}
+  #help{position:absolute;left:14px;bottom:12px;font-size:13px;line-height:1.5;opacity:.85}
+  #help b{background:rgba(255,255,255,.2);border-radius:4px;padding:0 5px}
+  #flair{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);width:260px;text-align:center;font-weight:700}
+  #flairBar{height:12px;border-radius:6px;background:rgba(0,0,0,.4);overflow:hidden;margin-top:4px}
+  #flairFill{height:100%;width:0;background:linear-gradient(90deg,#5ab0ff,#ffe066,#ff6a3d)}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,30,20,.55);overflow:auto;padding:16px;box-sizing:border-box}
+  .box{background:rgba(25,40,30,.92);border:1px solid rgba(255,255,255,.2);border-radius:18px;padding:22px 26px;max-width:920px;width:100%;box-sizing:border-box;max-height:100%;overflow:auto}
+  h1{margin:0 0 4px;font-size:30px}
+  .sub{opacity:.8;margin:0 0 14px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0}
+  .card{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:14px;cursor:pointer;color:#fff;font:inherit;text-align:left;transition:transform .12s,background .12s}
+  .card:hover{transform:translateY(-3px);background:rgba(255,255,255,.18)}
+  .card .e{font-size:32px}
+  .card h3{margin:6px 0 4px;font-size:17px}
+  .card p{margin:0;font-size:13px;opacity:.85;line-height:1.35}
+  .card .rec{margin-top:8px;font-size:12px;color:#ffe066}
+  .keys{font-size:13px;line-height:1.7;opacity:.9;columns:2;column-gap:30px}
+  .keys b{background:rgba(255,255,255,.18);border-radius:4px;padding:1px 6px}
+  input{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;width:180px}
+  button.btn{font:inherit;font-weight:700;padding:10px 22px;border-radius:12px;border:0;background:#ffe066;color:#253;cursor:pointer;margin:6px 6px 0 0}
+  button.btn.alt{background:rgba(255,255,255,.2);color:#fff}
+  table{border-collapse:collapse;margin:10px 0;width:100%;max-width:420px}
+  td{padding:4px 10px;border-bottom:1px solid rgba(255,255,255,.15)}
+  tr.me td{color:#ffe066;font-weight:700}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" hidden>
+  <div id="obj"></div>
+  <div id="timer"></div>
+  <div id="dir"><span id="dirA">▲</span><span id="dirD"></span></div>
+  <div id="msg"></div>
+  <div id="flair" hidden><span id="flairT">Flair</span><div id="flairBar"><div id="flairFill"></div></div></div>
+  <div id="help"><b>Z</b><b>Q</b><b>S</b><b>D</b> bouger · <b>Maj</b> sprinter · <b>Espace</b> sauter · <b>F</b> flairer · <b>B</b> aboyer · <b>V</b> vue · <b>P</b> pause · clic = regarder à la souris</div>
+</div>
+<div id="menu" class="overlay">
+  <div class="box">
+    <h1>🐕 Berger Blanc : la vie de chien</h1>
+    <p class="sub">Tu es le chien ! Cours, flaire, saute et rapporte le bâton.</p>
+    <label>Nom de ton chien : <input id="name" maxlength="14" placeholder="Neige"></label>
+    <div class="cards" id="cards"></div>
+    <div class="keys">
+      <div><b>Z</b> <b>S</b> ou <b>↑</b> <b>↓</b> : avancer, reculer</div>
+      <div><b>Q</b> <b>D</b> ou <b>←</b> <b>→</b> : tourner</div>
+      <div><b>Maj</b> : sprinter</div>
+      <div><b>Espace</b> : sauter</div>
+      <div><b>F</b> (ou clic droit) : flairer une piste</div>
+      <div><b>B</b> : aboyer</div>
+      <div><b>V</b> : vue du chien / vue de derrière</div>
+      <div><b>P</b> ou <b>Échap</b> : pause</div>
+      <div>Clic dans le jeu : regarder à la souris</div>
+      <div>Manette : stick, A sauter, RT sprinter, X flairer</div>
+    </div>
+  </div>
+</div>
+<div id="panel" class="overlay" hidden><div class="box" id="panelBox"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v)), lerp = (a,b,t) => a + (b-a)*t;
+const smooth = (a,b,x) => { x = clamp((x-a)/(b-a), 0, 1); return x*x*(3-2*x); };
+let seed = 20261114;
+const rnd = () => { seed = (seed*1664525 + 1013904223) >>> 0; return seed/4294967296; };
+const fmt = t => { const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- sauvegarde ---------- */
+let save = { name:'', best:{} };
+try { Object.assign(save, JSON.parse(localStorage.getItem('chienFPV.save') || '{}')); } catch(e) {}
+const store = () => { try { localStorage.setItem('chienFPV.save', JSON.stringify(save)); } catch(e) {} };
+const dogName = () => (save.name || '').trim() || 'Ton chien';
+
+/* ---------- monde ---------- */
+const WORLD = 195;
+const hills = (x,z) => 3.2*Math.sin(x*.021+.5)*Math.cos(z*.018) + 1.6*Math.sin(x*.047+1.3)*Math.sin(z*.043+.7) + .45*Math.sin(x*.11)*Math.cos(z*.13);
+const ground = (x,z) => hills(x,z) * smooth(34, 72, Math.hypot(x,z));
+function meadowAmt(x,z){
+  const a = ((x-95)/50)**2 + (z/70)**2, b = ((x+85)/30)**2 + ((z+75)/30)**2;
+  return Math.min(a,b) + .12*Math.sin(x*.13)*Math.cos(z*.11);
+}
+const inGrass = (x,z) => meadowAmt(x,z) < 1;
+
+const renderer = new THREE.WebGLRenderer({ canvas:$('c'), antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fd0f0);
+scene.fog = new THREE.Fog(0xb9dcef, 50, 250);
+const camera = new THREE.PerspectiveCamera(78, 1, .03, 600);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+scene.add(new THREE.HemisphereLight(0xdcefff, 0x55703f, .95));
+const sun = new THREE.DirectionalLight(0xfff2d8, .75); sun.position.set(60, 100, 40); scene.add(sun);
+function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+// sol
+{
+  const S = 2*WORLD + 80, N = 170, g = new THREE.PlaneGeometry(S, S, N, N);
+  g.rotateX(-Math.PI/2);
+  const p = g.attributes.position, col = new Float32Array(p.count*3);
+  for (let i = 0; i < p.count; i++){
+    const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x,z);
+    p.setY(i, ground(x,z));
+    const f = smooth(.9, 1.25, meadowAmt(x,z)) * smooth(36, 48, d);
+    const n = .88 + .24*(.5 + .5*Math.sin(x*1.7 + z*2.3)*Math.cos(x*.9 - z*1.3));
+    col[i*3]   = lerp(.40, .25, f)*n;
+    col[i*3+1] = lerp(.63, .34, f)*n;
+    col[i*3+2] = lerp(.26, .16, f)*n;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors:true })));
+}
+
+// collisions (arbres, maître)
+const grid = new Map(), CELL = 8, gkey = (i,j) => i*4096 + j;
+function addCol(x,z,r){
+  const k = gkey(Math.floor(x/CELL)+512, Math.floor(z/CELL)+512);
+  if (!grid.has(k)) grid.set(k, []);
+  grid.get(k).push({ x, z, r });
+}
+function nearTree(x,z,m){
+  const ci = Math.floor(x/CELL)+512, cj = Math.floor(z/CELL)+512;
+  for (let i = ci-1; i <= ci+1; i++) for (let j = cj-1; j <= cj+1; j++){
+    const a = grid.get(gkey(i,j)); if (!a) continue;
+    for (const o of a) if (Math.hypot(x-o.x, z-o.z) < o.r + m) return true;
+  }
+  return false;
+}
+
+// arbres
+{
+  const firs = [], leafy = [];
+  for (let i = 0; i < 1500; i++){
+    const a = rnd()*Math.PI*2, r = Math.sqrt(rnd())*(WORLD+25), x = Math.cos(a)*r, z = Math.sin(a)*r;
+    if (r < 44 || meadowAmt(x,z) < 1.18) continue;
+    if (Math.sin(x*.05)*Math.cos(z*.06) + rnd()*.9 < .1) continue;      // petites clairières
+    const s = .75 + rnd()*.9;
+    (rnd() < .68 ? firs : leafy).push({ x, z, s, y:ground(x,z), rot:rnd()*6.28, c:.75 + rnd()*.4 });
+    addCol(x, z, .24*s);
+  }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color();
+  const mk = (geo, mat, list, base) => {
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((t,i) => {
+      e.set(0, t.rot, 0); q.setFromEuler(e);
+      m4.compose(v.set(t.x, t.y - .1, t.z), q, sc.set(t.s, t.s, t.s)); im.setMatrixAt(i, m4);
+      im.setColorAt(i, c.setRGB(base[0]*t.c, base[1]*t.c, base[2]*t.c));
+    });
+    scene.add(im);
+  };
+  const trunk = new THREE.CylinderGeometry(.16, .26, 3.2, 6); trunk.translate(0, 1.6, 0);
+  const all = firs.concat(leafy);
+  mk(trunk, new THREE.MeshLambertMaterial(), all, [.42,.3,.2]);
+  const fir = new THREE.LatheGeometry([[0,8],[1.1,5.6],[.55,5.6],[1.7,3.4],[.85,3.4],[2.2,1.3],[0,1.3]].map(p => new THREE.Vector2(p[0], p[1])), 7);
+  mk(fir, new THREE.MeshLambertMaterial({ flatShading:true }), firs, [.16,.42,.2]);
+  const ball = new THREE.IcosahedronGeometry(2.1, 1); ball.scale(1, .85, 1); ball.translate(0, 4.4, 0);
+  mk(ball, new THREE.MeshLambertMaterial({ flatShading:true }), leafy, [.36,.58,.2]);
+}
+
+// hautes herbes
+const grassU = { uTime:{ value:0 }, uDog:{ value:new THREE.Vector3() } };
+{
+  const B = 10, pos = [], col = [], nor = [];
+  for (let b = 0; b < B; b++){
+    const a = rnd()*6.28, r = rnd()*.3, ox = Math.cos(a)*r, oz = Math.sin(a)*r, d = rnd()*3.14, w = .014 + rnd()*.012, h = .55 + rnd()*.45;
+    const lx = (rnd()-.5)*.3, lz = (rnd()-.5)*.3;
+    pos.push(ox - Math.cos(d)*w, 0, oz - Math.sin(d)*w,  ox + Math.cos(d)*w, 0, oz + Math.sin(d)*w,  ox + lx, h, oz + lz);
+    const k = .8 + rnd()*.4; col.push(.2*k,.4*k,.12*k, .2*k,.4*k,.12*k, .62*k,.8*k,.32*k);
+    nor.push(0,1,0, 0,1,0, 0,1,0);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  const mat = new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = grassU.uTime; sh.uniforms.uDog = grassU.uDog;
+    sh.vertexShader = 'uniform float uTime;uniform vec3 uDog;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vec3 ip = instanceMatrix[3].xyz; float hh = position.y;
+      transformed.x += sin(uTime*1.7 + ip.x*.35 + ip.z*.2)*.09*hh;
+      transformed.z += cos(uTime*1.3 + ip.z*.3)*.06*hh;
+      vec2 dd = ip.xz - uDog.xz; float dl = length(dd);
+      float push = (1. - smoothstep(0., 1.5, dl))*hh*.75;
+      transformed.xz += normalize(dd + vec2(.0001))*push; transformed.y -= push*.4;`);
+  };
+  const pts = [];
+  const fill = (x0,x1,z0,z1,n) => { for (let i = 0; i < n; i++){ const x = lerp(x0,x1,rnd()), z = lerp(z0,z1,rnd()); if (meadowAmt(x,z) < .97) pts.push(x,z); } };
+  fill(40, 150, -78, 78, 30000); fill(-120, -50, -110, -40, 6500);
+  const im = new THREE.InstancedMesh(g, mat, pts.length/2), m4 = new THREE.Matrix4();
+  for (let i = 0; i < pts.length/2; i++){
+    const x = pts[i*2], z = pts[i*2+1], s = .8 + rnd()*.7;
+    m4.makeScale(rnd() < .5 ? s : -s, s*(.8 + rnd()*.5), rnd() < .5 ? s : -s); m4.setPosition(x, ground(x,z), z);
+    im.setMatrixAt(i, m4);
+  }
+  im.frustumCulled = false; scene.add(im);
+}
+
+/* ---------- petits outils 3D ---------- */
+const L = c => new THREE.MeshLambertMaterial({ color:c });
+function mesh(geo, mat, x, y, z, parent){ const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); (parent || scene).add(m); return m; }
+function textSprite(txt, bg, w){
+  const cv = document.createElement('canvas'); cv.width = w || 128; cv.height = 128;
+  const c = cv.getContext('2d'); c.fillStyle = bg; c.beginPath();
+  if (w) c.rect(0, 24, w, 80); else c.arc(64, 64, 58, 0, 7);
+  c.fill(); c.fillStyle = '#fff'; c.font = 'bold ' + (w ? 54 : 76) + 'px system-ui,Arial'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(txt, cv.width/2, 68);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(cv) }));
+  s.scale.set(w ? w/128*.9 : .7, w ? .9 : .7, 1); return s;
+}
+
+/* ---------- parcours d'agility ---------- */
+const steps = [];
+let obstNum = 0;
+function sign(x,z){ const s = textSprite(String(++obstNum), '#d9482b'); s.position.set(x, 1.5, z); scene.add(s); }
+function hurdle(x,z,nz){
+  const white = L(0xffffff), red = L(0xd9482b);
+  for (const sx of [-1,1]) mesh(new THREE.CylinderGeometry(.05,.05,1,8), sx < 0 ? red : white, x + sx*.8, .5, z);
+  const bar = mesh(new THREE.CylinderGeometry(.035,.035,1.6,8), red, x, .45, z); bar.rotation.z = Math.PI/2;
+  sign(x + 1.25, z);
+  steps.push({ type:'gate', x, z, nx:0, nz, hw:.8, minH:.4, bar, label:'Saute la haie (Espace)' });
+}
+function arrow(x,z,nz){ const m = mesh(new THREE.ConeGeometry(.22,.6,3), new THREE.MeshBasicMaterial({ color:0xffe066 }), x, .04, z); m.scale.z = .08; m.rotation.x = nz > 0 ? Math.PI/2 : -Math.PI/2; }
+{
+  hurdle(0, 8, -1); hurdle(0, 0, -1);
+  // tunnel
+  const tun = mesh(new THREE.CylinderGeometry(.78,.78,5,18,1,true), new THREE.MeshLambertMaterial({ color:0x2f7fd0, side:THREE.DoubleSide }), 0, .7, -10.5);
+  tun.rotation.x = Math.PI/2; sign(1.3, -7.8);
+  steps.push({ type:'gate', x:0, z:-8, nx:0, nz:-1, hw:.7, label:'Entre dans le tunnel' });
+  steps.push({ type:'gate', x:0, z:-13, nx:0, nz:-1, hw:.7, label:'Traverse le tunnel' });
+  // slalom
+  for (let i = 0; i < 6; i++){
+    mesh(new THREE.CylinderGeometry(.04,.04,1.1,8), L(i % 2 ? 0xffffff : 0xd9482b), 5 + i*2.4, .55, -19);
+    if (i < 5){ const nz = i % 2 ? 1 : -1, x = 5 + (i+.5)*2.4; arrow(x, -19, nz); steps.push({ type:'gate', x, z:-19, nx:0, nz, hw:1.2, label:'Slalom : zigzague entre les piquets (' + (i+1) + '/5)' }); }
+  }
+  sign(4.2, -19);
+  hurdle(22, -10, 1);
+  // tapis de pause
+  const mat = mesh(new THREE.CircleGeometry(1.4, 24), L(0xffd23f), 22, .03, 0); mat.rotation.x = -Math.PI/2; sign(23.8, 0);
+  steps.push({ type:'stay', x:22, z:0, label:'Pas bouger sur le tapis jaune !' });
+  hurdle(22, 8, 1);
+  // arrivée
+  for (const sx of [-1,1]) mesh(new THREE.CylinderGeometry(.07,.07,2.6,8), L(0xffffff), 22 + sx*2, 1.3, 15);
+  const ban = textSprite('ARRIVÉE', '#2a9d4b', 512); ban.position.set(22, 2.5, 15); scene.add(ban);
+  steps.push({ type:'gate', x:22, z:15, nx:0, nz:1, hw:2, label:'Fonce vers l\'arrivée !' });
+}
+const marker = mesh(new THREE.ConeGeometry(.3,.7,4), new THREE.MeshBasicMaterial({ color:0xffe066 }), 0, 0, 0); marker.rotation.x = Math.PI;
+
+/* ---------- le maître ---------- */
+const MX = -14, MZ = 6;
+const masterG = new THREE.Group(); masterG.position.set(MX, 0, MZ); scene.add(masterG);
+mesh(new THREE.CylinderGeometry(.2,.17,.9,10), L(0x2b4a8a), 0, .45, 0, masterG);
+mesh(new THREE.CylinderGeometry(.24,.22,.65,10), L(0xc8402e), 0, 1.22, 0, masterG);
+mesh(new THREE.SphereGeometry(.15,12,10), L(0xf0c8a0), 0, 1.7, 0, masterG);
+mesh(new THREE.CylinderGeometry(.16,.16,.08,12), L(0x2b4a8a), 0, 1.83, 0, masterG);
+addCol(MX, MZ, .3);
+let masterHop = 0;
+
+/* ---------- bâton et objets cachés ---------- */
+const stickGeo = new THREE.CylinderGeometry(.028,.034,.62,7), stickMat = L(0x8a5a2b);
+const stick = { state:'none', x:0, y:0, z:0, vx:0, vy:0, vz:0, t:0, mesh:mesh(stickGeo, stickMat, 0, 0, 0) };
+stick.mesh.rotation.z = Math.PI/2;
+const sph = new THREE.SphereGeometry(1, 12, 10);
+function toy(name, build){ const g = new THREE.Group(); build(g); g.visible = false; scene.add(g); return { name, g, x:0, z:0, found:true }; }
+const sm = (g, mat, x, y, z, sx, sy, sz) => { const m = mesh(sph, mat, x, y, z, g); m.scale.set(sx, sy || sx, sz || sx); return m; };
+const toys = [
+  toy('la balle', g => sm(g, L(0xe63946), 0, .13, 0, .13)),
+  toy('l\'os', g => { const w = L(0xf5f0e0); const c = mesh(new THREE.CylinderGeometry(.03,.03,.3,8), w, 0, .06, 0, g); c.rotation.z = Math.PI/2; for (const a of [-1,1]) for (const b of [-1,1]) sm(g, w, a*.16, .06, b*.035, .045); }),
+  toy('l\'anneau', g => { const t = mesh(new THREE.TorusGeometry(.13,.04,8,18), L(0x2f7fd0), 0, .05, 0, g); t.rotation.x = Math.PI/2; }),
+  toy('le canard', g => { const y = L(0xffd23f); sm(g, y, 0, .1, 0, .12, .1, .15); sm(g, y, 0, .23, -.09, .07); sm(g, L(0xf08a24), 0, .22, -.17, .03, .015, .04); }),
+  toy('le doudou', g => { const b = L(0x9a6b42); sm(g, b, 0, .12, 0, .12, .13, .1); sm(g, b, 0, .3, 0, .09); sm(g, b, -.07, .38, 0, .035); sm(g, b, .07, .38, 0, .035); }),
+];
+
+/* ---------- piste d'odeur ---------- */
+const SC = 40, scentPos = new Float32Array(SC*3), scentCol = new Float32Array(SC*3);
+const scentGeo = new THREE.BufferGeometry();
+scentGeo.setAttribute('position', new THREE.BufferAttribute(scentPos, 3));
+scentGeo.setAttribute('color', new THREE.BufferAttribute(scentCol, 3));
+const dot = document.createElement('canvas'); dot.width = dot.height = 64;
+{ const c = dot.getContext('2d'), g = c.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0,0,64,64); }
+const scent = new THREE.Points(scentGeo, new THREE.PointsMaterial({ size:.34, opacity:.9, map:new THREE.CanvasTexture(dot), vertexColors:true, transparent:true, depthWrite:false }));
+scent.frustumCulled = false; scent.visible = false; scene.add(scent);
+
+/* ---------- le chien ---------- */
+const furMat = L(0xf1ede2), darkMat = L(0x1c1a18), pinkMat = L(0xf08a9a);
+// vue du chien : oreilles, museau, langue
+const fpv = new THREE.Group(); camera.add(fpv);
+const ears = [-1,1].map(side => {
+  const g = new THREE.Group(); g.position.set(side*.235, .115, -.3); fpv.add(g);
+  const geo = new THREE.ConeGeometry(.042,.115,4,1,true);
+  const m = mesh(geo, furMat, 0, .057, 0, g); m.scale.z = .28;
+  const inner = mesh(geo, new THREE.MeshLambertMaterial({ color:0xe9a9a4, side:THREE.BackSide }), 0, .057, 0, g); inner.scale.z = .28;
+  return { g, side, ax:0, vx:0 };
+});
+const snout = mesh(new THREE.CylinderGeometry(.03,.052,.3,12), L(0xe2ded3), 0, -.225, -.34, fpv); snout.rotation.x = -Math.PI/2; snout.scale.z = .75;
+mesh(new THREE.SphereGeometry(.024,10,8), darkMat, 0, -.212, -.492, fpv);
+const tongue = mesh(new THREE.BoxGeometry(.035,.008,.1), pinkMat, 0, -.262, -.42, fpv);
+const mouthStick = mesh(stickGeo, stickMat, 0, -.25, -.4, fpv); mouthStick.rotation.z = Math.PI/2;
+// vue de derrière : le chien entier
+function buildDog(){
+  const g = new THREE.Group();
+  const s = (x,y,z,sx,sy,sz,par,mat) => { const m = mesh(sph, mat || furMat, x, y, z, par || g); m.scale.set(sx,sy,sz); return m; };
+  s(0,.56,.02,.17,.19,.42); s(0,.6,-.27,.18,.21,.2); s(0,.57,.3,.165,.19,.17);
+  const head = new THREE.Group(); head.position.set(0,.76,-.42); g.add(head);
+  s(0,-.08,.08,.1,.17,.12,head); s(0,.07,-.06,.115,.115,.135,head);
+  const sn = mesh(new THREE.CylinderGeometry(.038,.06,.2,10), furMat, 0, .03, -.24, head); sn.rotation.x = -Math.PI/2;
+  s(0,.045,-.345,.028,.026,.026,head,darkMat);
+  for (const a of [-1,1]){
+    s(a*.065,.11,-.155,.018,.018,.018,head,darkMat);
+    const e = mesh(new THREE.ConeGeometry(.05,.16,4), furMat, a*.075, .22, -.02, head); e.scale.z = .5; e.rotation.z = -a*.12;
+  }
+  const hs = mesh(stickGeo, stickMat, 0, -.01, -.3, head); hs.rotation.z = Math.PI/2;
+  const legs = [];
+  for (const [x,z] of [[-.1,-.3],[.1,-.3],[-.1,.32],[.1,.32]]){
+    const lg = new THREE.Group(); lg.position.set(x,.5,z); g.add(lg);
+    mesh(new THREE.CylinderGeometry(.045,.035,.5,8), furMat, 0, -.25, 0, lg);
+    s(0,-.48,-.02,.045,.03,.06,lg);
+    legs.push(lg);
+  }
+  const tail = new THREE.Group(); tail.position.set(0,.62,.42); g.add(tail);
+  const tm = mesh(new THREE.CylinderGeometry(.03,.06,.5,8), furMat, 0, -.22, .1, tail); tm.rotation.x = -.45;
+  const shadow = mesh(new THREE.CircleGeometry(.3,16), new THREE.MeshBasicMaterial({ color:0, transparent:true, opacity:.25, depthWrite:false }), 0, .03, 0, g);
+  shadow.rotation.x = -Math.PI/2; shadow.scale.y = 1.5;
+  scene.add(g);
+  return { g, head, legs, tail, hs, shadow };
+}
+const model = buildDog();
+const dog = { x:0, z:16, h:0, yaw:0, pitch:0, v:0, vy:0, air:false, phase:0, sniff:false, pant:0, frozen:0, px:0, pz:16, turn:0, sprint:false, happy:0 };
+
+/* ---------- sons ---------- */
+let AC = null, out = null, noiseBuf = null;
+function audio(){
+  if (AC) return;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    out = AC.createGain(); out.gain.value = .5; out.connect(AC.destination);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+  } catch(e) { AC = null; }
+}
+function tone(f0, f1, dur, type, vol, delay){
+  if (!AC) return; const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + .02);
+}
+function noise(dur, freq, vol, type, delay){
+  if (!AC) return; const t = AC.currentTime + (delay || 0), s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noiseBuf; f.type = type || 'bandpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()*.5, dur + .05);
+}
+const bark = () => { for (let k = 0; k < 2; k++){ tone(540, 200, .13, 'sawtooth', .3, k*.21); noise(.12, 900, .25, 'bandpass', k*.21); } };
+const ding = () => { tone(660, 660, .15, 'sine', .25); tone(880, 880, .15, 'sine', .25, .12); tone(1320, 1320, .3, 'sine', .25, .24); };
+const buzz = () => tone(160, 90, .35, 'square', .2);
+
+/* ---------- commandes ---------- */
+const keys = {}; let lookX = 0, lookY = 0, mouseSniff = false, testInput = null;
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (!keys[e.code]){
+    if (e.code === 'KeyV' && state === 'play') third = !third;
+    if (e.code === 'KeyB' && state === 'play'){ bark(); flash('Ouaf ! Ouaf !', .8); }
+    if (e.code === 'KeyP' || e.code === 'Escape'){ if (state === 'play') pause(); else if (state === 'pause') resume(); }
+  }
+  keys[e.code] = true;
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+$('c').addEventListener('mousedown', e => {
+  if (state !== 'play') return;
+  if (e.button === 2) mouseSniff = true;
+  else if (document.pointerLockElement !== $('c') && $('c').requestPointerLock) $('c').requestPointerLock();
+});
+addEventListener('mouseup', e => { if (e.button === 2) mouseSniff = false; });
+addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('mousemove', e => { if (document.pointerLockElement === $('c')){ lookX += e.movementX*.0026; lookY += e.movementY*.002; } });
+let wasLocked = false;
+document.addEventListener('pointerlockchange', () => {
+  const l = document.pointerLockElement === $('c');
+  if (!l && wasLocked && state === 'play') pause();
+  wasLocked = l;
+});
+let padPrev = {};
+function readInput(){
+  if (testInput) return testInput();
+  const k = keys, i = {
+    fwd:(k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0),
+    turn:(k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0),
+    sprint:!!(k.ShiftLeft || k.ShiftRight), jump:!!k.Space, sniff:!!k.KeyF || mouseSniff, lookX, lookY
+  };
+  lookX = lookY = 0;
+  const gp = (navigator.getGamepads ? Array.from(navigator.getGamepads()) : []).find(g => g && g.connected);
+  if (gp){
+    const dz = v => Math.abs(v) < .15 ? 0 : v, b = n => !!(gp.buttons[n] && gp.buttons[n].pressed);
+    const once = n => { const p = b(n), r = p && !padPrev[n]; padPrev[n] = p; return r; };
+    i.fwd = clamp(i.fwd - dz(gp.axes[1] || 0), -1, 1);
+    i.turn = clamp(i.turn + dz(gp.axes[0] || 0) + dz(gp.axes[2] || 0)*.8, -1, 1);
+    i.lookY += dz(gp.axes[3] || 0)*.03;
+    i.sprint = i.sprint || b(7) || b(5); i.jump = i.jump || b(0); i.sniff = i.sniff || b(2) || b(6);
+    if (once(1) && state === 'play') bark();
+    if (once(3) && state === 'play') third = !third;
+    if (once(9)){ if (state === 'play') pause(); else if (state === 'pause') resume(); }
+  }
+  return i;
+}
+
+/* ---------- état du jeu ---------- */
+let state = 'menu', third = false, time = 0, timer = 0, faults = 0, mode = null, task = null, taskIdx = 0, msgT = 0, stepI = 0;
+const msgEl = $('msg');
+function flash(t, d, big){ msgEl.textContent = t; msgEl.className = big ? 'big' : ''; msgT = d || 1.6; }
+
+function updateDog(dt, inp){
+  dog.px = dog.x; dog.pz = dog.z;
+  if (dog.frozen > 0){
+    const c = Math.ceil(dog.frozen); dog.frozen -= dt;
+    if (dog.frozen <= 0){ flash('Partez !', 1, true); tone(880, 880, .4, 'sine', .3); }
+    else if (Math.ceil(dog.frozen) !== c || msgT <= 0){ flash(String(Math.ceil(dog.frozen)), 1.1, true); tone(440, 440, .15, 'sine', .25); }
+    inp = { fwd:0, turn:0, sprint:false, jump:false, sniff:false, lookX:inp.lookX, lookY:inp.lookY };
+  }
+  dog.turn = lerp(dog.turn, inp.turn, 1 - Math.exp(-10*dt));
+  dog.yaw -= inp.turn*2.7*dt + inp.lookX;
+  dog.pitch = clamp(dog.pitch - inp.lookY, -.9, .7);
+  if (document.pointerLockElement !== $('c')) dog.pitch *= Math.exp(-2*dt);
+  dog.sniff = inp.sniff && !dog.air;
+  dog.sprint = inp.sprint && inp.fwd > 0 && !dog.sniff;
+  const grass = inGrass(dog.x, dog.z);
+  let maxV = inp.fwd > 0 ? (dog.sprint ? 11 : 6.5)*inp.fwd : 2.5*inp.fwd;
+  if (dog.sniff) maxV *= .5; if (grass) maxV *= .85;
+  dog.v += clamp(maxV - dog.v, -30*dt, 18*dt);
+  const fx = -Math.sin(dog.yaw), fz = -Math.cos(dog.yaw);
+  dog.x += fx*dog.v*dt; dog.z += fz*dog.v*dt;
+  if (inp.jump && !dog.air){ dog.vy = 5.6; dog.air = true; noise(.08, 300, .15, 'lowpass'); }
+  if (dog.air){
+    dog.h += dog.vy*dt; dog.vy -= 16*dt;
+    if (dog.h <= 0){ dog.h = 0; dog.vy = 0; dog.air = false; noise(.1, 180, .3, 'lowpass'); }
+  }
+  // arbres et maître
+  const ci = Math.floor(dog.x/CELL)+512, cj = Math.floor(dog.z/CELL)+512;
+  for (let i = ci-1; i <= ci+1; i++) for (let j = cj-1; j <= cj+1; j++){
+    const a = grid.get(gkey(i,j)); if (!a) continue;
+    for (const o of a){
+      const dx = dog.x - o.x, dz = dog.z - o.z, d = Math.hypot(dx,dz), m = o.r + .28;
+      if (d < m && d > 1e-4){ dog.x = o.x + dx/d*m; dog.z = o.z + dz/d*m; dog.v *= .92; }
+    }
+  }
+  // parois du tunnel
+  if (dog.z < -8.05 && dog.z > -12.95 && dog.h < 1.3){
+    const ax = Math.abs(dog.x), sx = dog.x < 0 ? -1 : 1;
+    if (ax < .78){ if (ax > .45) dog.x = sx*.45; } else if (ax < 1.05) dog.x = sx*1.05;
+  }
+  // bord du monde
+  const d = Math.hypot(dog.x, dog.z);
+  if (d > WORLD - 6){ dog.x *= (WORLD-6)/d; dog.z *= (WORLD-6)/d; if (msgT <= 0) flash('Trop loin ! Ton maître t\'appelle', 1.5); }
+  // pas
+  dog.phase += Math.abs(dog.v)*dt*1.7;
+  const si = Math.floor(dog.phase/Math.PI);
+  if (si !== stepI && !dog.air && Math.abs(dog.v) > 1){ stepI = si; grass ? noise(.12, 3500, .07, 'highpass') : noise(.05, 160, .1, 'lowpass'); }
+  dog.pant = clamp(dog.pant + (dog.sprint ? .14 : -.07)*dt, 0, 1);
+  if (dog.sniff && Math.floor(time*5) !== Math.floor((time-dt)*5)) noise(.09, 1800, .08, 'bandpass');
+  dog.happy = Math.max(0, dog.happy - dt);
+}
+
+/* ---------- épreuves ---------- */
+function throwStick(){
+  let tx = 0, tz = 0;
+  for (let k = 0; k < 20; k++){
+    const a = Math.random()*6.28, r = 18 + Math.random()*15; tx = MX + Math.cos(a)*r; tz = MZ + Math.sin(a)*r;
+    if (Math.hypot(tx,tz) < 110 && Math.hypot(tx - dog.x, tz - dog.z) > 10) break;
+  }
+  const T = 1.5, g = 12;
+  stick.x = MX; stick.y = 1.7; stick.z = MZ; stick.t = 0; stick.state = 'fly';
+  stick.vx = (tx - MX)/T; stick.vz = (tz - MZ)/T; stick.vy = (ground(tx,tz) - 1.7 + .5*g*T*T)/T;
+  flash('Va chercher !', 1.2); tone(900, 1400, .18, 'sine', .15);
+}
+function updateStick(dt){
+  const s = stick;
+  if (s.state === 'held'){ s.t -= dt; if (s.t <= 0) throwStick(); }
+  if (s.state === 'fly'){
+    s.t += dt; s.x += s.vx*dt; s.y += s.vy*dt; s.z += s.vz*dt; s.vy -= 12*dt;
+    s.mesh.rotation.y += 9*dt;
+    const gy = ground(s.x, s.z) + .04;
+    if (s.y <= gy){ s.y = gy; s.state = 'ground'; noise(.08, 500, .15, 'lowpass'); }
+  }
+  if ((s.state === 'fly' && s.t > .45) || s.state === 'ground'){
+    const dy = s.y - (ground(dog.x,dog.z) + dog.h + .5);
+    if (Math.hypot(s.x - dog.x, s.z - dog.z) < 1.25 && Math.abs(dy) < 1.3){
+      if (s.state === 'fly') flash('Attrapé au vol ! Bravo !', 1.6);
+      s.state = 'carried'; tone(500, 800, .12, 'sine', .2);
+    }
+  }
+  s.mesh.visible = s.state === 'fly' || s.state === 'ground';
+  s.mesh.position.set(s.x, s.y, s.z);
+}
+function taskFetch(n){
+  let got = 0; stick.state = 'wait';
+  return {
+    name:'le bâton', done:false,
+    update(){
+      const dm = Math.hypot(dog.x - MX, dog.z - MZ);
+      if (stick.state === 'wait' && dm < 7){ stick.state = 'held'; stick.t = .7; }
+      if (stick.state === 'carried' && dm < 2.6){
+        got++; ding(); masterHop = 1; dog.happy = 2;
+        flash('Bravo ' + dogName() + ' !', 1.4);
+        if (n && got >= n){ stick.state = 'none'; this.done = true; } else { stick.state = 'held'; stick.t = 1.3; }
+      }
+    },
+    text(){
+      const c = n ? ' (' + got + '/' + n + ')' : (got ? ' · ' + got + ' rapporté' + (got > 1 ? 's' : '') : '');
+      if (stick.state === 'wait') return 'Rejoins ton maître pour jouer au bâton' + c;
+      if (stick.state === 'carried') return 'Rapporte le bâton à ton maître' + c;
+      if (stick.state === 'held') return 'Attention, il va lancer…' + c;
+      return 'Va chercher le bâton ! (F pour flairer)' + c;
+    },
+    target(){
+      if (stick.state === 'fly' || stick.state === 'ground') return { x:stick.x, z:stick.z, hidden:true, col:[1,.4,.05] };
+      return { x:MX, z:MZ, y:2.3, marker:stick.state !== 'held' };
+    }
+  };
+}
+function taskSearch(n, r0, r1){
+  const list = toys.slice().sort(() => Math.random() - .5).slice(0, n);
+  for (const t of list){
+    for (let k = 0; k < 30; k++){
+      const a = Math.random()*6.28, r = r0 + Math.random()*(r1 - r0);
+      t.x = dog.x*.3 + Math.cos(a)*r; t.z = dog.z*.3 + Math.sin(a)*r;
+      if (Math.hypot(t.x,t.z) < WORLD - 20 && Math.hypot(t.x,t.z) > 30 && !nearTree(t.x, t.z, .5)) break;
+    }
+    t.found = false; t.g.visible = true; t.g.position.set(t.x, ground(t.x,t.z), t.z); t.g.rotation.y = Math.random()*6.28;
+  }
+  let got = 0, cur = null;
+  return {
+    name:'la recherche', done:false,
+    update(){
+      cur = null; let best = 1e9;
+      for (const t of list) if (!t.found){ const d = Math.hypot(t.x - dog.x, t.z - dog.z); if (d < best){ best = d; cur = t; } }
+      if (cur && best < 1.4){
+        cur.found = true; cur.g.visible = false; got++; ding(); dog.happy = 2;
+        flash('Trouvé : ' + cur.name + ' !', 1.6);
+        if (got >= n) this.done = true;
+      }
+    },
+    text(){ return 'Maintiens F pour flairer et trouve les objets cachés (' + got + '/' + n + ')'; },
+    target(){ return cur ? { x:cur.x, z:cur.z, hidden:true, col:[.75,.15,1] } : null; }
+  };
+}
+function taskAgility(){
+  let idx = 0, hold = 0;
+  for (const s of steps) if (s.bar){ s.bar.position.y = .45; s.bar.rotation.x = 0; }
+  return {
+    name:'l\'agility', done:false,
+    update(dt){
+      const s = steps[idx]; if (!s) return;
+      if (s.type === 'gate'){
+        const s0 = (dog.px - s.x)*s.nx + (dog.pz - s.z)*s.nz, s1 = (dog.x - s.x)*s.nx + (dog.z - s.z)*s.nz;
+        if (s0 < 0 && s1 >= 0){
+          const t = s0/(s0 - s1), cx = lerp(dog.px, dog.x, t) - s.x, cz = lerp(dog.pz, dog.z, t) - s.z;
+          if (Math.abs(cx*-s.nz + cz*s.nx) < s.hw){
+            if (s.minH && dog.h < s.minH){ faults++; s.bar.position.y = .04; s.bar.rotation.x = .3; buzz(); flash('Barre tombée ! +5 s', 1.3); }
+            else tone(700, 1000, .1, 'sine', .2);
+            idx++;
+          }
+        }
+      } else {
+        if (Math.hypot(dog.x - s.x, dog.z - s.z) < 1.4 && Math.abs(dog.v) < .6 && !dog.air){
+          hold += dt; if (msgT < .2) flash('Pas bouger… ' + Math.max(0, 2 - hold).toFixed(1), .3);
+          if (hold >= 2){ idx++; ding(); flash('C\'est bien !', 1); }
+        } else hold = 0;
+      }
+      if (idx >= steps.length) this.done = true;
+    },
+    text(){ const s = steps[idx]; return s ? s.label : ''; },
+    target(){ const s = steps[idx]; return s ? { x:s.x, z:s.z, y:s.type === 'stay' ? 1.6 : 2.2, marker:true } : null; }
+  };
+}
+const MODES = {
+  balade:   { e:'🌲', title:'Balade libre', desc:'Explore la forêt et les hautes herbes. Ton maître te lance le bâton quand tu veux.', tasks:[() => taskFetch(0)], free:true },
+  baton:    { e:'🐾', title:'Le bâton', desc:'Rapporte 5 bâtons le plus vite possible. Attrape-les au vol !', tasks:[() => taskFetch(5)] },
+  recherche:{ e:'👃', title:'Recherche', desc:'5 jouets sont cachés. Suis leur odeur avec ton flair.', tasks:[() => taskSearch(5, 35, 105)] },
+  agility:  { e:'🚩', title:'Parcours d\'agility', desc:'Haies, tunnel, slalom et tapis : entraîne-toi sur le parcours.', tasks:[taskAgility] },
+  concours: { e:'🏆', title:'Le concours', desc:'3 épreuves à la suite : agility, recherche et bâton. Bats les autres chiens !', tasks:[taskAgility, () => taskSearch(3, 30, 65), () => taskFetch(3)] },
+};
+const RIVALS = [['Luna',110],['Rex',135],['Oslo',160],['Nala',195],['Filou',240]];
+
+function startMode(id){
+  audio(); mode = MODES[id]; mode.id = id;
+  Object.assign(dog, { x:0, z:16, h:0, yaw:0, pitch:0, v:0, vy:0, air:false, pant:0, frozen:mode.free ? 0 : 3, px:0, pz:16, happy:0 });
+  stick.state = 'none'; for (const t of toys){ t.found = true; t.g.visible = false; }
+  timer = 0; faults = 0; taskIdx = 0; task = mode.tasks[0](); third = false; msgT = 0;
+  $('menu').hidden = true; $('panel').hidden = true; $('hud').hidden = false; state = 'play';
+  if (mode.tasks.length > 1) flash('Épreuve 1 : ' + task.name, 2);
+}
+function pause(){
+  state = 'pause'; if (document.exitPointerLock) document.exitPointerLock();
+  panel('<h1>Pause</h1><p class="sub">' + esc(mode.title) + '</p>', [['Reprendre', resume], ['Recommencer', () => startMode(mode.id), 1], ['Menu', toMenu, 1]]);
+}
+function resume(){ $('panel').hidden = true; state = 'play'; }
+function toMenu(){ state = 'menu'; $('panel').hidden = true; $('hud').hidden = true; $('menu').hidden = false; $('c').style.filter = ''; scent.visible = false; buildCards(); }
+function panel(html, btns){
+  const b = $('panelBox'); b.innerHTML = html;
+  for (const [t, fn, alt] of btns){ const el = document.createElement('button'); el.className = 'btn' + (alt ? ' alt' : ''); el.textContent = t; el.onclick = fn; b.appendChild(el); }
+  $('panel').hidden = false;
+}
+function finish(){
+  state = 'end'; if (document.exitPointerLock) document.exitPointerLock();
+  const score = timer + faults*5, old = save.best[mode.id], rec = !old || score < old;
+  if (rec){ save.best[mode.id] = score; store(); }
+  ding(); bark();
+  let h = '<h1>' + mode.e + ' ' + esc(mode.title) + ' : terminé !</h1><p class="sub">Temps : <b>' + fmt(timer) + '</b>';
+  if (faults) h += ' + ' + faults + ' faute' + (faults > 1 ? 's' : '') + ' (+' + faults*5 + ' s) = <b>' + fmt(score) + '</b>';
+  h += rec ? ' · 🌟 Nouveau record !' : ' · Record : ' + fmt(old);
+  h += '</p>';
+  if (mode.id === 'concours'){
+    const rows = RIVALS.map(r => ({ n:r[0], t:r[1] + Math.random()*14 - 7 })).concat({ n:dogName(), t:score, me:true }).sort((a,b) => a.t - b.t);
+    const place = rows.findIndex(r => r.me) + 1;
+    h += '<p class="sub">' + (place === 1 ? '🥇 ' + esc(dogName()) + ' gagne le concours !' : place <= 3 ? '🏅 Sur le podium : ' + place + 'e place !' : place + 'e place. Tu feras mieux la prochaine fois !') + '</p><table>';
+    rows.forEach((r,i) => { h += '<tr' + (r.me ? ' class="me"' : '') + '><td>' + (i+1) + '</td><td>' + esc(r.n) + '</td><td>' + fmt(r.t) + '</td></tr>'; });
+    h += '</table>';
+  }
+  panel(h, [['Rejouer', () => startMode(mode.id)], ['Menu', toMenu, 1]]);
+}
+function buildCards(){
+  const c = $('cards'); c.innerHTML = '';
+  for (const id in MODES){
+    const m = MODES[id], b = document.createElement('button'); b.className = 'card';
+    b.innerHTML = '<div class="e">' + m.e + '</div><h3>' + m.title + '</h3><p>' + m.desc + '</p>' + (save.best[id] ? '<div class="rec">Record : ' + fmt(save.best[id]) + '</div>' : '');
+    b.onclick = () => startMode(id); c.appendChild(b);
+  }
+}
+$('name').value = save.name || '';
+$('name').addEventListener('input', e => { save.name = e.target.value; store(); });
+buildCards();
+
+/* ---------- boucle ---------- */
+let target = null, camH = .62, camSniff = 0, fov = 78;
+const hudCache = {};
+function setText(id, t){ if (hudCache[id] !== t){ hudCache[id] = t; $(id).textContent = t; } }
+function step(dt){
+  time += dt; grassU.uTime.value = time;
+  const inp = readInput();
+  if (state === 'play'){
+    updateDog(dt, inp);
+    if (dog.frozen <= 0 && !mode.free) timer += dt;
+    task.update(dt); updateStick(dt);
+    if (task.done){
+      taskIdx++;
+      if (taskIdx >= mode.tasks.length) finish();
+      else { task = mode.tasks[taskIdx](); flash('Épreuve ' + (taskIdx+1) + ' : ' + task.name, 2.2); }
+    }
+    target = state === 'play' ? task.target() : null;
+  }
+  updateView(dt);
+  if (state === 'play') updateHud(dt);
+}
+function updateView(dt){
+  const gy = ground(dog.x, dog.z), fx = -Math.sin(dog.yaw), fz = -Math.cos(dog.yaw), sp = Math.min(1, Math.abs(dog.v)/6);
+  const menuCam = state === 'menu', back = third || menuCam;
+  grassU.uDog.value.set(dog.x, gy, dog.z);
+  // modèle
+  model.g.visible = back; fpv.visible = !back;
+  model.g.position.set(dog.x, gy + dog.h, dog.z); model.g.rotation.y = dog.yaw;
+  const sw = Math.sin(dog.phase)*.75*sp;
+  model.legs[0].rotation.x = dog.air ? -.8 : sw; model.legs[1].rotation.x = dog.air ? -.8 : -sw;
+  model.legs[2].rotation.x = dog.air ? .7 : -sw; model.legs[3].rotation.x = dog.air ? .7 : sw;
+  model.head.rotation.x = lerp(model.head.rotation.x, dog.sniff ? .9 : 0, 1 - Math.exp(-8*dt));
+  model.tail.rotation.z = Math.sin(time*(dog.happy > 0 || menuCam ? 14 : 3))*(dog.happy > 0 || menuCam ? .7 : .12);
+  model.tail.rotation.x = -.3*sp;
+  model.g.position.y += Math.abs(Math.sin(dog.phase))*.04*sp;
+  model.hs.visible = stick.state === 'carried';
+  model.shadow.position.y = .03 - dog.h;
+  // maître
+  masterHop = Math.max(0, masterHop - dt*1.6);
+  masterG.position.y = Math.abs(Math.sin(masterHop*9))*.25*masterHop;
+  masterG.rotation.y = Math.atan2(dog.x - MX, dog.z - MZ);
+  // caméra
+  camSniff = lerp(camSniff, dog.sniff ? 1 : 0, 1 - Math.exp(-7*dt));
+  fov = lerp(fov, dog.sprint ? 86 : 78, 1 - Math.exp(-4*dt));
+  if (Math.abs(camera.fov - fov) > .05){ camera.fov = fov; camera.updateProjectionMatrix(); }
+  if (menuCam){
+    const a = time*.25; camera.position.set(dog.x + Math.sin(a)*3.4, gy + 1.3, dog.z + Math.cos(a)*3.4);
+    camera.lookAt(dog.x, gy + .55, dog.z);
+  } else if (third){
+    const tx = dog.x - fx*3.4, tz = dog.z - fz*3.4, ty = Math.max(gy + dog.h + 1.6, ground(tx,tz) + .5), k = 1 - Math.exp(-9*dt);
+    camera.position.x = lerp(camera.position.x, tx, k); camera.position.y = lerp(camera.position.y, ty, k); camera.position.z = lerp(camera.position.z, tz, k);
+    camera.lookAt(dog.x + fx*2, gy + dog.h + .7, dog.z + fz*2);
+  } else {
+    const bob = Math.sin(dog.phase*2)*.035*sp, cx = dog.x + fx*.3, cz = dog.z + fz*.3;
+    camH = lerp(.62, .27, camSniff);
+    camera.position.set(cx, Math.max(ground(cx,cz), gy) + dog.h + camH + bob, cz);
+    camera.rotation.set(dog.pitch - .42*camSniff + Math.cos(dog.phase*2)*.012*sp, dog.yaw, -dog.turn*.05*sp);
+    // oreilles : petits ressorts
+    for (const e of ears){
+      const goal = dog.sprint ? .6 : dog.sniff ? -.2 : dog.air ? .4 : .1*sp;
+      e.vx += ((goal - e.ax)*90 - e.vx*9)*dt + Math.cos(dog.phase*2 + e.side)*sp*2.2*dt;
+      e.ax += e.vx*dt;
+      e.g.rotation.x = e.ax; e.g.rotation.z = -e.side*(.16 + .1*Math.sin(dog.phase + e.side)*sp) - dog.turn*.12;
+    }
+    tongue.visible = dog.pant > .35 && stick.state !== 'carried';
+    tongue.position.y = -.262 +Math.sin(time*13)*.008; tongue.rotation.x = .25 + Math.sin(time*13)*.12;
+    mouthStick.visible = stick.state === 'carried';
+  }
+  // balise et piste d'odeur
+  const tg = state === 'play' ? target : null;
+  marker.visible = !!(tg && tg.marker);
+  if (marker.visible){ marker.position.set(tg.x, ground(tg.x,tg.z) + (tg.y || 2.2) + Math.sin(time*4)*.18, tg.z); marker.rotation.y = time*2; }
+  const sc = !!(tg && tg.hidden && dog.sniff);
+  scent.visible = sc;
+  if (sc){
+    const dx = tg.x - dog.x, dz = tg.z - dog.z, d = Math.hypot(dx,dz) || 1, len = Math.min(d, 24), ux = dx/d, uz = dz/d;
+    for (let i = 0; i < SC; i++){
+      const t = (i/SC + time*.22) % 1, w = Math.sin(t*11 + i)*.4*Math.sin(t*Math.PI), a = Math.min(1.6, len*.5) + t*(len - Math.min(1.6, len*.5)), x = dog.x + ux*a - uz*w, z = dog.z + uz*a + ux*w;
+      scentPos[i*3] = x; scentPos[i*3+1] = ground(x,z) + .22 + .1*Math.sin(i*2.1 + time*2); scentPos[i*3+2] = z;
+      scentCol[i*3] = tg.col[0]; scentCol[i*3+1] = tg.col[1]; scentCol[i*3+2] = tg.col[2];
+    }
+    scentGeo.attributes.position.needsUpdate = true; scentGeo.attributes.color.needsUpdate = true;
+  }
+  const flt = state === 'play' && dog.sniff ? 'saturate(.45) contrast(1.08)' : '';
+  if (hudCache.flt !== flt){ hudCache.flt = flt; $('c').style.filter = flt; }
+}
+function updateHud(dt){
+  setText('obj', task.text());
+  if (mode.free) setText('timer', ''); else if (hudCache.timer !== (hudCache.timer = fmt(timer) + '|' + faults)) $('timer').innerHTML = fmt(timer) + (faults ? '<small>' + faults + ' faute' + (faults > 1 ? 's' : '') + '</small>' : '');
+  msgT -= dt; msgEl.style.opacity = clamp(msgT*3, 0, 1);
+  const show = target && (!target.hidden || dog.sniff);
+  $('dir').hidden = !show;
+  if (show){
+    const dx = target.x - dog.x, dz = target.z - dog.z, f = -dx*Math.sin(dog.yaw) - dz*Math.cos(dog.yaw), r = dx*Math.cos(dog.yaw) - dz*Math.sin(dog.yaw);
+    $('dirA').style.transform = 'rotate(' + Math.atan2(r, f).toFixed(2) + 'rad)';
+    setText('dirD', Math.round(Math.hypot(dx,dz)) + ' m');
+  }
+  const fl = !!(target && target.hidden && dog.sniff);
+  $('flair').hidden = !fl;
+  if (fl){
+    const d = Math.hypot(target.x - dog.x, target.z - dog.z), c = 1 - clamp(d/90, 0, 1);
+    $('flairFill').style.width = Math.round(c*100) + '%';
+    setText('flairT', d < 6 ? 'Flair : brûlant !' : d < 20 ? 'Flair : chaud' : d < 45 ? 'Flair : tiède' : 'Flair : froid');
+  }
+}
+let last = 0;
+function frame(now){
+  const dt = clamp((now - last)/1000, 0, .05); last = now;
+  step(dt); renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__dog = { step, render:() => renderer.render(scene, camera), dog, stick, steps, startMode, setInput:f => { testInput = f; }, get:() => ({ state, timer, faults, taskIdx, target, text:task && task.text() }), setThird:v => { third = v; }, MX, MZ };
+</script>
+</body>
+</html>
