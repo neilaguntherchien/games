@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Berger Blanc : la vie de chien</title>
+<title>La vie de chien</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#9fd0f0;font-family:system-ui,"Segoe UI",sans-serif;color:#fff;user-select:none}
   #c{position:fixed;inset:0;width:100%;height:100%;display:block;transition:filter .25s}
@@ -43,6 +43,11 @@
   td{padding:4px 10px;border-bottom:1px solid rgba(255,255,255,.15)}
   tr.me td{color:#ffe066;font-weight:700}
   input[type=checkbox]{width:auto;margin-left:18px}
+  #breeds{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  #breeds button{font:inherit;font-size:14px;color:#fff;background:rgba(255,255,255,.09);border:2px solid rgba(255,255,255,.2);border-radius:20px;padding:5px 12px 5px 6px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  #breeds button.sel{border-color:#ffe066;background:rgba(255,224,102,.2)}
+  #breeds i{width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.5);display:block}
+  @media (min-width:1100px){ #menu{justify-content:flex-end;padding-right:4vw} #menu .box{max-width:700px} }
   html,body{touch-action:manipulation;-webkit-user-select:none;-webkit-touch-callout:none}
   #c{touch-action:none}
   #touch{display:none;position:fixed;inset:0;pointer-events:none}
@@ -82,10 +87,11 @@
 </div>
 <div id="menu" class="overlay">
   <div class="box">
-    <h1>🐕 Berger Blanc : la vie de chien</h1>
+    <h1>🐕 La vie de chien</h1>
     <p class="sub">Tu es le chien ! Cours, flaire, saute et rapporte le bâton.</p>
     <label>Nom de ton chien : <input id="name" maxlength="14" placeholder="Neige"></label>
     <label><input type="checkbox" id="voice"> Voix du maître</label>
+    <div id="breeds"></div>
     <div class="cards" id="cards"></div>
     <div class="keys">
       <div><b>Z</b> <b>S</b> ou <b>↑</b> <b>↓</b> : avancer, reculer</div>
@@ -403,19 +409,21 @@ const scent = new THREE.Points(scentGeo, new THREE.PointsMaterial({ size:.34, op
 scent.frustumCulled = false; scent.visible = false; scene.add(scent);
 
 /* ---------- le chien ---------- */
-const earMat = L(0xe9e3d6);
-const furMat = L(0xf1ede2), darkMat = L(0x1c1a18), pinkMat = L(0xf08a9a);
+// une matière par zone du pelage : applyBreed() change leurs couleurs selon la race
+const M = {}; for (const k of ['body','back','chest','head','snout','ear','legs','paws','tail','tip','blaze']) M[k] = L(0xf1ede2);
+const earMat = M.ear;
+const furMat = M.body, darkMat = L(0x1c1a18), pinkMat = L(0xf08a9a);
 // vue du chien : oreilles, museau, langue
 const fpv = new THREE.Group(); camera.add(fpv);
 const ears = [-1,1].map(side => {
   const g = new THREE.Group(); g.position.set(side*.3, .03, -.3); fpv.add(g);
-  const pts = []; for (let i = 0; i <= 12; i++){ const t = i/12; pts.push(new THREE.Vector2(.044*Math.pow(1 - t, .7)*(1 + .25*Math.sin(t*3.14)), t*.15)); }
+  const pts = [new THREE.Vector2(0, -.004)]; for (let i = 0; i <= 12; i++){ const t = i/12; pts.push(new THREE.Vector2(.044*Math.pow(1 - t, .7)*(1 + .25*Math.sin(t*3.14)), t*.15)); }
   const geo = new THREE.LatheGeometry(pts, 16); geo.scale(1, 1, .36);
   mesh(geo, earMat, 0, 0, 0, g).rotation.y = side*.35;                        // pavillon, un peu tourné vers l'extérieur
   const tuft = mesh(sph, earMat, 0, -.005, .005, g); tuft.scale.set(.05, .02, .028);   // touffe de poils à la base
   return { g, side, b:0, s:.12, vb:0, vs:0 };
 });
-const snout = mesh(new THREE.CylinderGeometry(.03,.052,.3,12), L(0xe2ded3), 0, -.225, -.34, fpv); snout.rotation.x = -Math.PI/2; snout.scale.z = .75;
+const snout = mesh(new THREE.CylinderGeometry(.03,.052,.3,12), M.snout, 0, -.225, -.34, fpv); snout.rotation.x = -Math.PI/2; snout.scale.z = .75;
 mesh(new THREE.SphereGeometry(.024,10,8), darkMat, 0, -.212, -.492, fpv);
 const tongue = mesh(new THREE.BoxGeometry(.035,.008,.1), pinkMat, 0, -.262, -.42, fpv);
 const mouthStick = mesh(stickGeo, stickMat, 0, -.25, -.4, fpv); mouthStick.rotation.z = Math.PI/2;
@@ -435,9 +443,12 @@ function updateEars(dt, sp){
     const left = (e.side < 0) !== flip, tb = T[left ? 0 : 2] + (m === 'happy' ? Math.sin(time*20 + e.side)*.18 : 0), ts = T[left ? 1 : 3];
     e.vb += ((tb - e.b)*110 - e.vb*11)*dt + Math.cos(dog.phase*2 + e.side)*sp*2.4*dt; e.b += e.vb*dt;
     e.vs += ((ts - e.s)*110 - e.vs*11)*dt; e.s += e.vs*dt;
-    e.g.rotation.x = e.b; e.g.rotation.z = -e.side*e.s - dog.turn*.1;
-    e.g.scale.y = lerp(e.g.scale.y, m === 'alert' ? 1.12 : 1, 1 - Math.exp(-10*dt));
-    const me = model.g.userData.ears[e.side < 0 ? 0 : 1]; me.rotation.x = e.b*.9; me.rotation.z = -e.side*(.1 + e.s);
+    const flap = earCfg.drop > 1 ? Math.sin(dog.phase*2 + e.side)*.22*sp : 0;      // les oreilles tombantes battent en courant
+    e.g.rotation.x = e.b*earCfg.k; e.g.rotation.z = -e.side*(e.s*earCfg.k + earCfg.drop + flap) - dog.turn*.1;
+    e.g.position.y = earCfg.y;
+    e.g.scale.y = lerp(e.g.scale.y, earCfg.len*(m === 'alert' ? 1.12 : 1), 1 - Math.exp(-10*dt));
+    const me = model.g.userData.ears[e.side < 0 ? 0 : 1]; me.rotation.x = e.b*.9*earCfg.k; me.rotation.z = -e.side*(.1 + e.s*earCfg.k + earCfg.mdrop + flap);
+    me.scale.y = earCfg.len;
   }
   const ex = Math.min(.33, .3*Math.tan(camera.fov*Math.PI/360)*camera.aspect - .035);
   ears[0].g.position.x = -ex; ears[1].g.position.x = ex;
@@ -446,33 +457,59 @@ function updateEars(dt, sp){
 function buildDog(){
   const g = new THREE.Group();
   const s = (x,y,z,sx,sy,sz,par,mat) => { const m = mesh(sph, mat || furMat, x, y, z, par || g); m.scale.set(sx,sy,sz); return m; };
-  s(0,.56,.02,.17,.19,.42); s(0,.6,-.27,.18,.21,.2); s(0,.57,.3,.165,.19,.17);
+  s(0,.56,.02,.17,.19,.42); s(0,.6,-.27,.18,.21,.2,g,M.chest); s(0,.57,.3,.165,.19,.17);
+  s(0,.63,.06,.15,.15,.37,g,M.back);                                         // selle sur le dos
   const head = new THREE.Group(); head.position.set(0,.76,-.42); g.add(head);
-  s(0,-.08,.08,.1,.17,.12,head); s(0,.07,-.06,.115,.115,.135,head);
-  const sn = mesh(new THREE.CylinderGeometry(.038,.06,.2,10), furMat, 0, .03, -.24, head); sn.rotation.x = -Math.PI/2;
+  s(0,-.08,.08,.1,.17,.12,head,M.chest); s(0,.07,-.06,.115,.115,.135,head,M.head);
+  s(0,.1,-.14,.028,.06,.09,head,M.blaze);                                    // liste blanche sur le front
+  const sn = mesh(new THREE.CylinderGeometry(.038,.06,.2,10), M.snout, 0, .03, -.24, head); sn.rotation.x = -Math.PI/2;
   s(0,.045,-.345,.028,.026,.026,head,darkMat);
   for (const a of [-1,1]){
     s(a*.065,.11,-.155,.018,.018,.018,head,darkMat);
     const eg = new THREE.Group(); eg.position.set(a*.075, .14, -.02); head.add(eg);
-    const e = mesh(new THREE.ConeGeometry(.05,.16,8), furMat, 0, .08, 0, eg); e.scale.z = .45;
+    const e = mesh(new THREE.ConeGeometry(.05,.16,8), M.ear, 0, .08, 0, eg); e.scale.z = .45;
     (g.userData.ears = g.userData.ears || []).push(eg);
   }
   const hs = mesh(stickGeo, stickMat, 0, -.01, -.3, head); hs.rotation.z = Math.PI/2;
   const legs = [];
   for (const [x,z] of [[-.1,-.3],[.1,-.3],[-.1,.32],[.1,.32]]){
     const lg = new THREE.Group(); lg.position.set(x,.5,z); g.add(lg);
-    mesh(new THREE.CylinderGeometry(.045,.035,.5,8), furMat, 0, -.25, 0, lg);
-    s(0,-.48,-.02,.045,.03,.06,lg);
+    mesh(new THREE.CylinderGeometry(.045,.035,.5,8), M.legs, 0, -.25, 0, lg);
+    s(0,-.48,-.02,.045,.03,.06,lg,M.paws);
     legs.push(lg);
   }
   const tail = new THREE.Group(); tail.position.set(0,.62,.42); g.add(tail);
-  const tm = mesh(new THREE.CylinderGeometry(.03,.06,.5,8), furMat, 0, -.22, .1, tail); tm.rotation.x = -.45;
+  const tm = mesh(new THREE.CylinderGeometry(.03,.06,.5,8), M.tail, 0, -.22, .1, tail); tm.rotation.x = -.45;
+  s(0,-.25,0,.06,.07,.06,tm,M.tip); g.userData.tm = tm;
   const shadow = mesh(new THREE.CircleGeometry(.3,16), new THREE.MeshBasicMaterial({ color:0, transparent:true, opacity:.25, depthWrite:false }), 0, .03, 0, g);
   shadow.rotation.x = -Math.PI/2; shadow.scale.y = 1.5; shadow.castShadow = false; shadow.visible = LOW;
   scene.add(g);
   return { g, head, legs, tail, hs, shadow };
 }
 const model = buildDog();
+/* ---------- les races ---------- */
+const W = 0xf4f1ea, BLK = 0x1e1c1c;
+const one = c => ({ body:c, back:c, chest:c, head:c, snout:c, ear:c, legs:c, paws:c, tail:c, tip:c, blaze:c });
+const BREEDS = [
+  { id:'bbs', name:'Berger Blanc Suisse', ear:'up', size:1.04, fluff:1.5, tail:1, c:Object.assign(one(0xf1ede2), { snout:0xe4e0d5, ear:0xe9e3d6 }) },
+  { id:'lab', name:'Labrador', ear:'drop', size:1, fluff:1.1, tail:.9, c:Object.assign(one(0xdcb873), { snout:0xe3c78c, ear:0xc59d58, chest:0xe3c78c }) },
+  { id:'golden', name:'Golden Retriever', ear:'drop', size:1, fluff:1.8, tail:1, c:Object.assign(one(0xd49a3a), { chest:0xe2b566, ear:0xb47a26, tail:0xe2b566, tip:0xecc47c, snout:0xdcab52 }) },
+  { id:'gsd', name:'Berger Allemand', ear:'up', size:1.06, fluff:1.4, tail:1, c:Object.assign(one(0xb47c3c), { back:0x2a2622, snout:0x2a2622, ear:0x3a2e26, chest:0xc48d4c, legs:0xc48d4c, paws:0xc48d4c, tail:0x2a2622, tip:0x2a2622 }) },
+  { id:'mali', name:'Malinois', ear:'up', size:.98, fluff:.9, tail:.95, c:Object.assign(one(0xc48f52), { back:0xae7a42, head:0xb48046, snout:0x2a2420, ear:0x2e2622, chest:0xd0a066, tip:0x2a2420 }) },
+  { id:'aussie', name:'Berger Australien', ear:'semi', size:.9, fluff:1.6, tail:.3, c:Object.assign(one(0x8d9299), { back:0x5e636b, head:0x7b8088, ear:0x5e636b, chest:W, snout:W, blaze:W, paws:W, legs:0xc98a4e }) },
+  { id:'border', name:'Border Collie', ear:'semi', size:.88, fluff:1.6, tail:1, c:Object.assign(one(BLK), { chest:W, snout:W, blaze:W, paws:W, tip:W }) },
+];
+const EARCFG = { up:{ drop:0, mdrop:0, k:1, y:.03, len:1 }, semi:{ drop:.38, mdrop:.5, k:.8, y:.03, len:.8 }, drop:{ drop:3.0, mdrop:2.5, k:.3, y:.262, len:1.1 } };
+let earCfg = EARCFG.up;
+function applyBreed(id){
+  const b = BREEDS.find(x => x.id === id) || BREEDS[0];
+  for (const k in M) M[k].color.setHex(b.c[k]);
+  earCfg = EARCFG[b.ear];
+  model.g.scale.setScalar(b.size);
+  const tm = model.g.userData.tm; tm.scale.set(b.fluff, b.tail, b.fluff); tm.position.set(0, -.22*b.tail, .1*b.tail);
+  return b;
+}
+applyBreed(save.breed);
 const dog = { x:0, z:16, h:0, yaw:0, pitch:0, v:0, vy:0, air:false, phase:0, sniff:false, pant:0, frozen:0, px:0, pz:16, turn:0, sprint:false, happy:0 };
 
 /* ---------- sons ---------- */
@@ -1125,6 +1162,16 @@ function buildCards(){
 }
 $('name').value = save.name || '';
 $('name').addEventListener('input', e => { save.name = e.target.value; store(); });
+{
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  for (const b of BREEDS){
+    const el = document.createElement('button');
+    el.innerHTML = '<i style="background:linear-gradient(135deg,' + hex(b.c.body) + ' 55%,' + hex(b.c.snout === b.c.body ? b.c.ear : b.c.snout) + ' 55%)"></i>' + b.name;
+    el.onclick = () => { save.breed = b.id; store(); applyBreed(b.id); for (const o of $('breeds').children) o.classList.toggle('sel', o === el); };
+    if (b.id === (save.breed || 'bbs')) el.className = 'sel';
+    $('breeds').appendChild(el);
+  }
+}
 $('voice').checked = save.voice !== false;
 $('voice').addEventListener('change', e => { save.voice = e.target.checked; store(); if (e.target.checked){ audio(); say(NM('Allez %, viens !', 'Allez, viens !')); } });
 buildCards();
@@ -1180,6 +1227,8 @@ function updateView(dt){
   camSniff = lerp(camSniff, dog.sniff ? 1 : 0, 1 - Math.exp(-7*dt));
   fov = lerp(fov, dog.sprint ? 86 : 78, 1 - Math.exp(-4*dt));
   if (Math.abs(camera.fov - fov) > .05){ camera.fov = fov; camera.updateProjectionMatrix(); }
+  const off = menuCam && innerWidth >= 1100;                // au menu sur grand écran : le chien est décalé à gauche du panneau
+  if (hudCache.off !== off){ hudCache.off = off; if (off) camera.setViewOffset(innerWidth, innerHeight, innerWidth*.3, 0, innerWidth, innerHeight); else camera.clearViewOffset(); }
   if (menuCam){
     const a = time*.25; camera.position.set(dog.x + Math.sin(a)*3.4, gy + 1.3, dog.z + Math.cos(a)*3.4);
     camera.lookAt(dog.x, gy + .55, dog.z);
