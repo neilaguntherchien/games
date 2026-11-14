@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nos jeux de dragons</title>
+<style>
+  body { margin:0; min-height:100vh; font-family: system-ui, "Segoe UI", sans-serif; color:#fff;
+         background: radial-gradient(circle at 50% 0%, #3b2a6b, #120c24 70%); display:flex; flex-direction:column; align-items:center; padding:40px 16px; box-sizing:border-box; }
+  h1 { font-size: clamp(28px, 6vw, 48px); margin: 0 0 8px; text-align:center; }
+  p.sub { opacity:.75; margin:0 0 32px; text-align:center; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:20px; width:100%; max-width:900px; }
+  a.card { display:block; text-decoration:none; color:#fff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+           border-radius:16px; padding:24px; transition: transform .15s, background .15s; }
+  a.card:hover { transform: translateY(-4px); background:rgba(255,255,255,.14); }
+  .emoji { font-size:44px; }
+  h2 { margin:10px 0 6px; font-size:22px; }
+  .card p { margin:0; opacity:.8; line-height:1.4; }
+  footer { margin-top:40px; opacity:.5; font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+  <h1>🐉 Nos jeux de dragons</h1>
+  <p class="sub">À jouer directement dans le navigateur (Chrome conseillé)</p>
+  <div class="grid">
+    <a class="card" href="dragons-elementaires/">
+      <div class="emoji">⚔️</div>
+      <h2>L'Arène des Dragons Élémentaires</h2>
+      <p>Choisis ton dragon (feu, eau, terre, vent, foudre), combats des bots ou un ami en écran partagé, gagne des pièces et améliore-le !</p>
+    </a>
+    <a class="card" href="dragons-elementaires/version-exploration.html">
+      <div class="emoji">🌄</div>
+      <h2>Exploration</h2>
+      <p>Vole tranquillement avec les 5 dragons, ramasse les cristaux et les étoiles. Ultra facile.</p>
+    </a>
+    <a class="card" href="dragon-fpv/">
+      <div class="emoji">🎮</div>
+      <h2>Dragon FPV</h2>
+      <p>Simulateur de vol façon drone FPV, à piloter avec une radiocommande ou une manette. Pour les experts !</p>
+    </a>
+  </div>
+  <footer>Clavier, souris ou manette</footer>
+</body>
+</html>

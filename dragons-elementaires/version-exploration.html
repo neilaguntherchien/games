@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragons Élémentaires</title>
+<style>
+:root{--txt:#fff;--panel:rgba(20,18,40,.88);--line:rgba(255,255,255,.18);--accent:#ffcc33}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--txt);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud2d{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+[hidden]{display:none!important}
+.shadow{text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(0,0,0,.35)}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none}
+#hudTL{position:absolute;left:18px;top:14px}
+#dName{font-size:24px;font-weight:800}
+#score{font-size:20px;margin-top:2px}
+#hudTR{position:absolute;right:18px;top:14px;text-align:right;font-size:20px;font-weight:700;line-height:1.5}
+#hudBottom{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;justify-content:center;width:min(92vw,720px)}
+.meter{width:170px}
+.meter label{display:block;font-size:13px;font-weight:700;margin-bottom:3px;text-align:center}
+.mbar{height:12px;border-radius:6px;background:rgba(0,0,0,.45);border:2px solid rgba(255,255,255,.6);overflow:hidden}
+.mbar i{display:block;height:100%;width:100%;background:var(--accent);transition:width .08s linear}
+#chips{display:flex;gap:6px;pointer-events:auto}
+.chip{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;position:relative;background:rgba(0,0,0,.35)}
+.chip b{position:absolute;bottom:-4px;right:-4px;font-size:11px;background:#000;border-radius:8px;padding:0 5px}
+.chip.on{border-color:#fff;transform:scale(1.15);box-shadow:0 0 16px currentColor}
+#msg{position:absolute;left:0;right:0;top:24%;text-align:center;font-size:38px;font-weight:900;letter-spacing:.03em;transition:opacity .3s}
+#hint{position:absolute;left:0;right:0;top:34%;text-align:center;font-size:18px;font-weight:700;opacity:.9}
+
+/* Menu */
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:linear-gradient(180deg,rgba(10,10,30,.15),rgba(10,10,30,.65))}
+.mwrap{width:min(1100px,100%);max-height:100%;overflow:auto}
+h1{margin:0 0 4px;text-align:center;font-size:clamp(30px,5vw,54px);font-weight:900;letter-spacing:.04em;background:linear-gradient(90deg,#ff6a2a,#33ccff,#9ad35a,#e8fbff,#ffe14a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 rgba(0,0,0,.5))}
+.sub{text-align:center;margin:0 0 18px;font-size:17px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media (max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:480px){.cards{grid-template-columns:1fr}}
+.card{background:var(--panel);border:3px solid var(--line);border-radius:18px;padding:14px 12px;cursor:pointer;text-align:center;transition:transform .12s,border-color .12s}
+.card:hover,.card.sel{transform:translateY(-4px);border-color:var(--c)}
+.card .ic{font-size:40px;line-height:1}
+.card h2{margin:6px 0 0;font-size:20px;color:var(--c)}
+.card .el{font-size:13px;opacity:.85}
+.card .pw{margin:8px 0;font-size:14px;font-weight:700}
+.stat{display:grid;grid-template-columns:62px 1fr;gap:6px;align-items:center;font-size:12px;text-align:left;margin-top:4px}
+.stat .sb{height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.stat .sb i{display:block;height:100%;background:var(--c)}
+.card .go{margin-top:10px;display:inline-block;padding:6px 16px;border-radius:999px;background:var(--c);color:#111;font-weight:900}
+.how{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px 26px;justify-content:center;font-size:15px}
+kbd{background:#fff;color:#222;border-radius:5px;padding:1px 7px;font-family:Consolas,monospace;font-weight:700;font-size:13px;box-shadow:0 2px 0 #999}
+.opts{margin-top:10px;text-align:center;font-size:14px}
+.opts label{margin:0 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="hud2d"></canvas>
+<div id="hud" hidden>
+  <div id="hudTL" class="shadow"><div id="dName"></div><div id="score"></div></div>
+  <div id="hudTR" class="shadow"><div>💎 Cristaux <span id="cCount"></span></div><div>✨ Étoiles <span id="oCount"></span></div></div>
+  <div id="msg" class="shadow"></div>
+  <div id="hint" class="shadow"></div>
+  <div id="hudBottom" class="shadow">
+    <div class="meter"><label id="powLabel">Pouvoir</label><div class="mbar"><i id="powBar"></i></div></div>
+    <div id="chips"></div>
+    <div class="meter"><label>Turbo</label><div class="mbar"><i id="boostBar"></i></div></div>
+  </div>
+</div>
+
+<div id="menu">
+  <div class="mwrap">
+    <h1>DRAGONS ÉLÉMENTAIRES</h1>
+    <p class="sub shadow">Choisis ton dragon ! Tu pourras en changer à tout moment avec les touches <kbd>1</kbd> à <kbd>5</kbd>.</p>
+    <div class="cards" id="cards"></div>
+    <div class="how">
+      <span><kbd>←</kbd><kbd>→</kbd> tourner</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> monter / descendre</span>
+      <span><kbd>Espace</kbd> ou clic : pouvoir</span>
+      <span><kbd>Shift</kbd> turbo</span>
+      <span><kbd>1</kbd>…<kbd>5</kbd> changer de dragon</span>
+      <span><kbd>C</kbd> caméra</span>
+      <span><kbd>Échap</kbd> pause</span>
+      <span>🎮 Manette : stick gauche, A = pouvoir, gâchette = turbo, LB/RB = dragon</span>
+    </div>
+    <div class="opts shadow">
+      <label><input type="checkbox" id="optInvert"> Inverser haut/bas (comme un avion)</label>
+      <label><input type="checkbox" id="optSound" checked> Son</label>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const approach = (v, t, s) => v < t ? Math.min(t, v + s) : Math.max(t, v - s);
+const wrapA = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+function loadOpt(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function saveOpt(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+// =====================================================================
+//  Les 5 dragons
+// =====================================================================
+const DRAGONS = [
+  { id: 'feu', name: 'Pyro', el: 'Dragon de Feu', icon: '🔥', css: '#ff6a2a', color: 0xd8341e, belly: 0xffb347, wing: 0x8a1a10, accent: 0x2a0a06, eye: 0xffe14a,
+    style: 'horns', speed: 30, turn: 1.55, scale: 1, cd: 0.32, power: 'Boule de feu', stats: [3, 3, 4] },
+  { id: 'eau', name: 'Aqua', el: "Dragon d'Eau", icon: '💧', css: '#33bbff', color: 0x1f7fd1, belly: 0xbff0ff, wing: 0x145a9c, accent: 0x5fe8ff, eye: 0xffffff,
+    style: 'fins', speed: 31, turn: 1.7, scale: 1, cd: 0.2, power: "Jet d'eau", stats: [3, 4, 3] },
+  { id: 'terre', name: 'Roc', el: 'Dragon de Terre', icon: '⛰️', css: '#9ad35a', color: 0x7a5a2e, belly: 0xc9b27a, wing: 0x4e3a1d, accent: 0x6fae3a, eye: 0xa6ff4a,
+    style: 'plates', speed: 26, turn: 1.35, scale: 1.2, cd: 0.7, power: 'Rocher géant', stats: [2, 2, 5] },
+  { id: 'vent', name: 'Zéphyr', el: 'Dragon du Vent', icon: '🌪️', css: '#bff3ff', color: 0xd9f1fb, belly: 0xffffff, wing: 0x9fd4ec, accent: 0x6fe0c8, eye: 0x2fb8a0,
+    style: 'feathers', speed: 38, turn: 1.9, scale: 0.9, cd: 0.8, power: 'Tornade', stats: [5, 5, 3] },
+  { id: 'foudre', name: 'Volt', el: "Dragon d'Électricité", icon: '⚡', css: '#ffe14a', color: 0x2d2a5a, belly: 0xffe14a, wing: 0x40307a, accent: 0xfff04a, eye: 0x9ff7ff,
+    style: 'bolts', speed: 34, turn: 1.65, scale: 1, cd: 0.5, power: 'Éclair (vise tout seul)', stats: [4, 4, 4] }
+];
+const EL_COL = { feu: [1, 0.45, 0.08], eau: [0.3, 0.75, 1], terre: [0.55, 0.42, 0.25], vent: [0.85, 0.97, 1], foudre: [1, 0.95, 0.4] };
+
+// =====================================================================
+//  Rendu, ciel, lumière
+// =====================================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.domElement.id = 'gl';
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const FOG = new THREE.Color(0xbfe0f5);
+scene.fog = new THREE.Fog(FOG, 300, 2100);
+const cam = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.1, 6000);
+const sunDir = new THREE.Vector3(0.4, 0.75, -0.5).normalize();
+scene.add(new THREE.HemisphereLight(0xdcefff, 0x5a4a35, 0.85));
+const sun = new THREE.DirectionalLight(0xfff2dc, 1.0); sun.position.copy(sunDir).multiplyScalar(100); scene.add(sun);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(4500, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false,
+  uniforms: { top: { value: new THREE.Color(0x3d8fe0) }, bottom: { value: FOG }, sunDir: { value: sunDir } },
+  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; varying vec3 vD;
+    void main(){ vec3 d=normalize(vD); float h=clamp(d.y*1.5+0.05,0.0,1.0); vec3 c=mix(bottom,top,pow(h,0.6));
+    float s=max(dot(d,sunDir),0.0); c+=vec3(1.0,0.9,0.7)*pow(s,350.0)*1.5+vec3(1.0,0.85,0.6)*pow(s,8.0)*0.2; gl_FragColor=vec4(c,1.0);} `
+}));
+scene.add(sky);
+function radialTex(stops, size = 64) {
+  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+const glowTex = radialTex([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,.65)'], [1, 'rgba(255,255,255,0)']]);
+
+// =====================================================================
+//  Terrain
+// =====================================================================
+function hash2(i, j, s) { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(s, 1442695041)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function vnoise(x, y, s = 0) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, o, s = 1) { let t = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { t += (vnoise(x * f, y * f, s + i * 17) * 2 - 1) * a; n += a; a *= 0.5; f *= 2.03; } return t / n; }
+function ridged(x, y, o, s = 99) { let t = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { let r = 1 - Math.abs(vnoise(x * f, y * f, s + i * 31) * 2 - 1); r *= r; t += r * a; n += a; a *= 0.5; f *= 2.1; } return t / n; }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = mulberry32(5150);
+
+const WORLD = 2800, SEG = 280, CELL = WORLD / SEG, HALF = WORLD / 2, GN = SEG + 1, LIMIT = 900;
+function rawHeight(x, z) {
+  const d = Math.hypot(x, z);
+  let h = fbm(x / 520, z / 520, 5, 3) * 70 + 12;
+  const m = smoothstep(0.0, 0.35, fbm(x / 1200 + 11.3, z / 1200 - 4.1, 3, 7));
+  h += Math.pow(ridged(x / 420, z / 420, 4), 2.2) * 200 * m;
+  h = 10 + (h - 10) * smoothstep(60, 220, d);
+  h += smoothstep(950, 1300, d) * 380;
+  return h;
+}
+const HGT = new Float32Array(GN * GN);
+for (let iz = 0; iz < GN; iz++) for (let ix = 0; ix < GN; ix++) HGT[iz * GN + ix] = rawHeight(-HALF + ix * CELL, -HALF + iz * CELL);
+function ground(x, z) {
+  const fx = (x + HALF) / CELL, fz = (z + HALF) / CELL;
+  if (fx < 0 || fz < 0 || fx >= SEG || fz >= SEG) return 400;
+  const ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz, i = iz * GN + ix;
+  return lerp(lerp(HGT[i], HGT[i + 1], tx), lerp(HGT[i + GN], HGT[i + GN + 1], tx), tz);
+}
+{
+  const tg = new THREE.PlaneGeometry(WORLD, WORLD, SEG, SEG); tg.rotateX(-Math.PI / 2);
+  const pos = tg.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const ix = Math.round((pos.getX(i) + HALF) / CELL), iz = Math.round((pos.getZ(i) + HALF) / CELL); pos.setY(i, HGT[iz * GN + ix]); }
+  tg.computeVertexNormals();
+  const nrm = tg.attributes.normal, cols = new Float32Array(pos.count * 3), c = new THREE.Color();
+  const SAND = new THREE.Color(0xe8d49a), G1 = new THREE.Color(0x5aa336), G2 = new THREE.Color(0x357a2c), ROCK = new THREE.Color(0x8a7f74), SNOW = new THREE.Color(0xffffff);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nrm.getY(i), n = vnoise(x * 0.02, z * 0.02, 5);
+    if (h < 2.5) c.copy(SAND);
+    else { c.copy(G1).lerp(G2, n); c.lerp(ROCK, smoothstep(0.86, 0.68, ny)); c.lerp(SNOW, smoothstep(170, 210, h + n * 30) * smoothstep(0.55, 0.8, ny)); }
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  tg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  scene.add(new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 })));
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(WORLD * 3, WORLD * 3), new THREE.MeshStandardMaterial({ color: 0x2f8fc0, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.85 }));
+  water.rotation.x = -Math.PI / 2; scene.add(water);
+}
+// arbres
+{
+  const N = 3000;
+  const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, 2, 5); trunkGeo.translate(0, 1, 0);
+  const leafGeo = new THREE.LatheGeometry([[0, 1.5], [2.2, 1.6], [1.0, 3.5], [1.7, 3.5], [0.6, 5.4], [1.2, 5.4], [0, 7.6]].map(([r, y]) => new THREE.Vector2(r, y)), 7);
+  const roundGeo = new THREE.IcosahedronGeometry(2.4, 0); roundGeo.translate(0, 4, 0);
+  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x6a4524, flatShading: true }), N);
+  const pines = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true }), N);
+  const rounds = new THREE.InstancedMesh(roundGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true }), N);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color(), Y = new THREE.Vector3(0, 1, 0);
+  let nt = 0, np = 0, nr = 0;
+  for (let k = 0; k < 40000 && nt < N; k++) {
+    const x = (rand() * 2 - 1) * 1100, z = (rand() * 2 - 1) * 1100, h = ground(x, z);
+    if (h < 3 || h > 160 || Math.hypot(x, z) < 70 || vnoise(x * 0.007, z * 0.007, 77) < 0.42) continue;
+    if (Math.abs(ground(x + 4, z) - ground(x - 4, z)) + Math.abs(ground(x, z + 4) - ground(x, z - 4)) > 5) continue;
+    const sc = 0.8 + rand() * 1.5; q.setFromAxisAngle(Y, rand() * 6.3); s.set(sc, sc * (0.85 + rand() * 0.4), sc); p.set(x, h - 0.3, z);
+    m4.compose(p, q, s); trunks.setMatrixAt(nt++, m4);
+    if (h > 50 || rand() < 0.5) { pines.setMatrixAt(np, m4); col.setHSL(0.3 + rand() * 0.06, 0.5, 0.2 + rand() * 0.08); pines.setColorAt(np++, col); }
+    else { rounds.setMatrixAt(nr, m4); col.setHSL(0.2 + rand() * 0.1, 0.6, 0.3 + rand() * 0.1); rounds.setColorAt(nr++, col); }
+  }
+  trunks.count = nt; pines.count = np; rounds.count = nr;
+  scene.add(trunks, pines, rounds);
+}
+// nuages
+{
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  for (let i = 0; i < 14; i++) { const x = 30 + Math.random() * 68, y = 40 + Math.random() * 48, r = 16 + Math.random() * 26; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }
+  const tex = new THREE.CanvasTexture(c);
+  for (let i = 0; i < 40; i++) {
+    const cx = (rand() * 2 - 1) * 1300, cz = (rand() * 2 - 1) * 1300, cy = 260 + rand() * 120;
+    for (let k = 0; k < 5; k++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); const sc = 110 + rand() * 140; sp.scale.set(sc * 1.6, sc, 1); sp.position.set(cx + (rand() - 0.5) * 200, cy + (rand() - 0.5) * 25, cz + (rand() - 0.5) * 200); scene.add(sp); }
+  }
+}
+// plateforme de départ
+{
+  const st = new THREE.MeshStandardMaterial({ color: 0xb8ad9c, flatShading: true });
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(16, 18, 4, 24), st); plat.position.set(0, 8.3, 0); scene.add(plat);
+  DRAGONS.forEach((d, i) => {
+    const a = i / 5 * Math.PI * 2, x = Math.cos(a) * 13, z = Math.sin(a) * 13;
+    const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 5, 6), st); pil.position.set(x, 12.8, z); scene.add(pil);
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(...EL_COL[d.id]) })); orb.position.set(x, 16, z); scene.add(orb);
+  });
+}
+
+// =====================================================================
+//  Particules (2 systèmes : lumineux et mat)
+// =====================================================================
+class Particles {
+  constructor(N, additive) {
+    this.N = N; this.next = 0;
+    this.pos = new Float32Array(N * 3); this.col = new Float32Array(N * 3); this.size = new Float32Array(N); this.alpha = new Float32Array(N);
+    this.vel = new Float32Array(N * 3); this.age = new Float32Array(N); this.life = new Float32Array(N); this.grav = new Float32Array(N); this.grow = new Float32Array(N); this.base = new Float32Array(N);
+    for (let i = 0; i < N; i++) this.pos[i * 3 + 1] = -9999;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    g.setAttribute('pcol', new THREE.BufferAttribute(this.col, 3));
+    g.setAttribute('psize', new THREE.BufferAttribute(this.size, 1));
+    g.setAttribute('palpha', new THREE.BufferAttribute(this.alpha, 1));
+    this.geo = g;
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: glowTex }, scale: { value: 400 } },
+      vertexShader: `attribute vec3 pcol; attribute float psize; attribute float palpha; uniform float scale; varying vec3 vC; varying float vA;
+        void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); float d=-mv.z; vC=pcol; vA=palpha*smoothstep(0.6,3.5,d);
+        gl_PointSize = min(psize*scale/max(d,0.1), 220.0); gl_Position = projectionMatrix*mv; }`,
+      fragmentShader: `uniform sampler2D map; varying vec3 vC; varying float vA; void main(){ float a=texture2D(map,gl_PointCoord).a; gl_FragColor=vec4(vC, a*vA); }`,
+      transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending
+    });
+    const pts = new THREE.Points(g, this.mat); pts.frustumCulled = false; scene.add(pts);
+  }
+  emit(x, y, z, vx, vy, vz, life, r, g, b, size, grav = 0, grow = 0) {
+    const i = this.next, j = i * 3; this.next = (this.next + 1) % this.N;
+    this.pos[j] = x; this.pos[j + 1] = y; this.pos[j + 2] = z; this.vel[j] = vx; this.vel[j + 1] = vy; this.vel[j + 2] = vz;
+    this.col[j] = r; this.col[j + 1] = g; this.col[j + 2] = b; this.age[i] = 0; this.life[i] = life; this.base[i] = size; this.size[i] = size; this.alpha[i] = 1;
+    this.grav[i] = grav; this.grow[i] = grow;
+  }
+  update(dt) {
+    const k = Math.exp(-1.6 * dt);
+    for (let i = 0; i < this.N; i++) {
+      if (this.life[i] <= 0) continue;
+      this.age[i] += dt; const t = this.age[i] / this.life[i], j = i * 3;
+      if (t >= 1) { this.life[i] = 0; this.alpha[i] = 0; this.pos[j + 1] = -9999; continue; }
+      this.vel[j] *= k; this.vel[j + 1] = this.vel[j + 1] * k - this.grav[i] * dt; this.vel[j + 2] *= k;
+      this.pos[j] += this.vel[j] * dt; this.pos[j + 1] += this.vel[j + 1] * dt; this.pos[j + 2] += this.vel[j + 2] * dt;
+      this.alpha[i] = 1 - t; this.size[i] = this.base[i] * (1 + this.grow[i] * t);
+    }
+    const a = this.geo.attributes; a.position.needsUpdate = a.pcol.needsUpdate = a.psize.needsUpdate = a.palpha.needsUpdate = true;
+  }
+}
+const glowP = new Particles(3000, true), mattP = new Particles(1500, false);
+const R = () => Math.random() - 0.5;
+function burst(p, el, n = 60, power = 18) {
+  for (let i = 0; i < n; i++) {
+    const vx = R() * power, vy = R() * power + 3, vz = R() * power;
+    switch (el) {
+      case 'feu': glowP.emit(p.x, p.y, p.z, vx, vy, vz, 0.6 + Math.random() * 0.6, 1, 0.35 + Math.random() * 0.3, 0.05, 3, -2, 1); break;
+      case 'eau': mattP.emit(p.x, p.y, p.z, vx, vy + 4, vz, 0.8 + Math.random() * 0.5, 0.55, 0.85, 1, 1.4, 14, 0.5); break;
+      case 'terre': mattP.emit(p.x, p.y, p.z, vx, vy, vz, 0.9 + Math.random() * 0.7, 0.5, 0.38, 0.22, 2.4, 10, 1.2); break;
+      case 'vent': glowP.emit(p.x, p.y, p.z, vx * 1.4, vy, vz * 1.4, 0.7 + Math.random() * 0.5, 0.5, 0.6, 0.65, 3, 0, 1.5); break;
+      case 'foudre': glowP.emit(p.x, p.y, p.z, vx * 1.6, vy * 1.6, vz * 1.6, 0.25 + Math.random() * 0.35, 1, 0.95, 0.5, 1.6, 0, 0); break;
+      case 'cristal': glowP.emit(p.x, p.y, p.z, vx, vy, vz, 0.7 + Math.random() * 0.6, 0.7, 0.3, 1, 2.2, 6, 0); break;
+      case 'etoile': glowP.emit(p.x, p.y, p.z, vx * 0.5, vy * 0.5, vz * 0.5, 0.5, 1, 0.85, 0.3, 1.5, 0, 0); break;
+    }
+  }
+}
+
+// =====================================================================
+//  Modèles des dragons
+// =====================================================================
+function std(color, extra = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, flatShading: true, roughness: 0.6, metalness: 0.1 }, extra)); }
+function limb(a, b, r1, r2, mat, seg = 7) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), dir = B.clone().sub(A), len = dir.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, len, seg), mat);
+  m.position.copy(A).addScaledVector(dir, 0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); return m;
+}
+function sph(r, sx, sy, sz, mat, x, y, z) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); return m; }
+function poly(pts, side = 1) {
+  const arr = []; for (let i = 1; i < pts.length - 1; i++) for (const p of [pts[0], pts[i], pts[i + 1]]) arr.push(p[0] * side, p[1], p[2]);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); return g;
+}
+function buildDragon(s) {
+  const glow = s.style === 'bolts' || s.style === 'fins';
+  const M = {
+    body: std(s.color, s.style === 'bolts' ? { metalness: 0.4, roughness: 0.4 } : {}), belly: std(s.belly, s.style === 'bolts' ? { emissive: s.belly, emissiveIntensity: 0.35 } : {}),
+    wing: std(s.wing, { side: THREE.DoubleSide, roughness: 0.8, transparent: s.style === 'feathers' || s.style === 'fins', opacity: 0.88 }),
+    acc: std(s.accent, glow ? { emissive: s.accent, emissiveIntensity: 0.7 } : {}), bone: std(0x2a1a14), horn: std(0xf0e6d0),
+    eye: new THREE.MeshBasicMaterial({ color: s.eye })
+  };
+  const root = new THREE.Group(), model = new THREE.Group(); root.add(model); model.scale.setScalar(s.scale);
+  const bulk = s.style === 'plates' ? 1.15 : s.style === 'feathers' ? 0.85 : 1;
+  model.add(sph(1, 0.95 * bulk, 0.85 * bulk, 2.3, M.body, 0, 0, 0));
+  model.add(sph(1, 0.75 * bulk, 0.6 * bulk, 2.0, M.belly, 0, -0.32, -0.1));
+  model.add(limb([0, 0.3, -1.8], [0, 1.05, -3.7], 0.62 * bulk, 0.36, M.body));
+  model.add(sph(0.55, 0.95, 0.75, 1.25, M.body, 0, 1.25, -4.1));
+  model.add(limb([0, 1.2, -4.5], [0, 1.02, -5.6], 0.4, 0.14, M.body, 6));
+  model.add(limb([0, 0.95, -4.4], [0, 0.88, -5.3], 0.3, 0.1, M.belly, 6));
+  for (const sd of [-1, 1]) {
+    model.add(sph(0.12, 1, 1, 1, M.eye, 0.34 * sd, 1.42, -4.4));
+    model.add(limb([0.6 * sd, -0.45, -1.3], [0.72 * sd, -1.15, -0.85], 0.22 * bulk, 0.12, M.body, 6));
+    model.add(limb([0.7 * sd, -0.45, 1.3], [0.8 * sd, -1.1, 1.95], 0.26 * bulk, 0.12, M.body, 6));
+  }
+  const backY = z => 0.85 * bulk * Math.sqrt(Math.max(0, 1 - (z / 2.3) ** 2));
+  switch (s.style) {
+    case 'horns':
+      for (const sd of [-1, 1]) model.add(limb([0.28 * sd, 1.55, -3.95], [0.65 * sd, 2.3, -3.0], 0.15, 0.02, M.horn, 5));
+      for (let z = -1.6; z <= 2.05; z += 0.5) model.add(limb([0, backY(z) - 0.1, z], [0, backY(z) + 0.55, z + 0.3], 0.16, 0.01, M.acc, 4));
+      break;
+    case 'fins': {
+      const fin = new THREE.Mesh(poly([[0, 0, -1.8], [0, 0.7, -1.2], [0, 1.1, 0], [0, 0.8, 1.2], [0, 0.2, 2.2], [0, 0, 2.2]]), M.acc);
+      fin.position.y = 0.65; model.add(fin);
+      for (const sd of [-1, 1]) { const hf = new THREE.Mesh(poly([[0.35, 1.3, -4.1], [1.1, 1.8, -3.5], [0.9, 1.0, -3.4]], sd), M.acc); model.add(hf); }
+      break;
+    }
+    case 'plates':
+      for (const sd of [-1, 1]) model.add(limb([0.3 * sd, 1.5, -3.95], [0.5 * sd, 1.85, -3.45], 0.22, 0.08, M.horn, 5));
+      for (let z = -1.7; z <= 2.0; z += 0.55) {
+        const pl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 0.18), z % 1.1 < 0.5 ? M.acc : std(0x8f8676));
+        pl.position.set(0, backY(z) + 0.25, z); pl.rotation.set(-0.3, 0, Math.PI / 4); model.add(pl);
+      }
+      break;
+    case 'feathers':
+      for (let i = 0; i < 5; i++) model.add(limb([0, 1.55, -4.0 + i * 0.12], [(i - 2) * 0.25, 2.1 + Math.abs(i - 2) * -0.12, -2.6 + i * 0.1], 0.08, 0.01, M.acc, 4));
+      for (let z = -1.2; z <= 2.0; z += 0.6) model.add(limb([0, backY(z) - 0.05, z], [0, backY(z) + 0.35, z + 0.6], 0.1, 0.01, M.acc, 4));
+      break;
+    case 'bolts':
+      for (const sd of [-1, 1]) { model.add(limb([0.28 * sd, 1.55, -3.95], [0.55 * sd, 2.0, -3.5], 0.12, 0.06, M.acc, 4)); model.add(limb([0.55 * sd, 2.0, -3.5], [0.45 * sd, 2.35, -2.9], 0.06, 0.01, M.acc, 4)); }
+      for (let z = -1.6; z <= 2.05; z += 0.6) { const y = backY(z); model.add(limb([0, y - 0.1, z], [0.18, y + 0.35, z + 0.15], 0.13, 0.05, M.acc, 4)); model.add(limb([0.18, y + 0.35, z + 0.15], [-0.05, y + 0.75, z + 0.3], 0.05, 0.01, M.acc, 4)); }
+      break;
+  }
+  const mouth = new THREE.Object3D(); mouth.position.set(0, 1.0, -5.8); model.add(mouth);
+  const head = new THREE.Object3D(); head.position.set(0, 2.0, -4.8); model.add(head);
+  // queue
+  const tail = []; let parent = new THREE.Group(); parent.position.set(0, 0.05, 2.0); model.add(parent);
+  let rad = 0.55 * bulk; const segN = s.style === 'feathers' || s.style === 'fins' ? 8 : 7;
+  for (let i = 0; i < segN; i++) { const g = new THREE.Group(); if (i > 0) g.position.z = 0.95; parent.add(g); const r2 = rad * 0.78; g.add(limb([0, 0, 0], [0, 0, 0.95], rad, r2, M.body, 6)); rad = r2; parent = g; tail.push(g); }
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), s.style === 'feathers' ? M.wing : M.acc);
+  tip.rotation.x = Math.PI / 2; tip.position.z = 1.45;
+  if (s.style === 'fins') tip.scale.x = 0.25; else tip.scale.z = 0.3;
+  parent.add(tip);
+  const tailTip = new THREE.Object3D(); tailTip.position.z = 1.6; parent.add(tailTip);
+  // ailes
+  const span = s.style === 'feathers' ? 1.3 : s.style === 'plates' ? 0.95 : 1;
+  const wings = [], tips = [];
+  for (const sd of [1, -1]) {
+    const wr = new THREE.Group(); wr.position.set(0.7 * sd * bulk, 0.55, -0.9);
+    wr.add(new THREE.Mesh(poly([[0, 0, 0], [2.6 * span, 0.25, -0.35], [2.6 * span, 0, 1.6], [1.3 * span, 0, 1.95], [0.2, -0.05, 1.6]], sd), M.wing));
+    wr.add(limb([0, 0, 0], [2.6 * span * sd, 0.25, -0.35], 0.15, 0.1, M.bone, 5));
+    const el = new THREE.Group(); el.position.set(2.6 * span * sd, 0.25, -0.35); wr.add(el);
+    const ow = s.style === 'feathers'
+      ? [[0, 0, 0], [3.8 * span, -0.25, 0.9], [3.3 * span, -0.25, 1.6], [2.6 * span, -0.25, 1.9], [1.8 * span, -0.25, 2.2], [1.0 * span, -0.25, 2.3], [0, -0.25, 1.95]]
+      : [[0, 0, 0], [3.4 * span, -0.25, 0.6], [2.6 * span, -0.25, 1.9], [1.7 * span, -0.25, 1.75], [1.0 * span, -0.25, 2.5], [0, -0.25, 1.95]];
+    el.add(new THREE.Mesh(poly(ow, sd), M.wing));
+    el.add(limb([0, 0, 0], [ow[1][0] * sd, -0.25, ow[1][2]], 0.1, 0.03, s.style === 'bolts' ? M.acc : M.bone, 5));
+    const tp = new THREE.Object3D(); tp.position.set(ow[1][0] * sd, -0.25, ow[1][2]); el.add(tp); tips.push(tp);
+    model.add(wr); wings.push({ root: wr, elbow: el, side: sd });
+  }
+  root.visible = false;
+  return { spec: s, root, wings, tail, mouth, head, tips, tailTip };
+}
+const rig = new THREE.Group(); scene.add(rig);
+const dragons = DRAGONS.map(s => { const d = buildDragon(s); rig.add(d.root); return d; });
+const auraLight = new THREE.PointLight(0xffffff, 0, 30, 2); rig.add(auraLight); auraLight.position.set(0, 1, -2);
+let cur = 0, dragon = dragons[0];
+
+// =====================================================================
+//  Cristaux (cibles) et étoiles (à ramasser)
+// =====================================================================
+const crystals = [], stars = [];
+const crystalMat = new THREE.MeshStandardMaterial({ color: 0xa65cff, emissive: 0x5a1aa8, emissiveIntensity: 0.9, flatShading: true, metalness: 0.3, roughness: 0.25 });
+const rockMat = std(0x7d7266, { roughness: 1 });
+const crystalGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xb070ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 });
+for (let k = 0; k < 6000 && crystals.length < 15; k++) {
+  const a = rand() * Math.PI * 2, d = 140 + rand() * 720, x = Math.cos(a) * d, z = Math.sin(a) * d;
+  if (crystals.some(c => Math.hypot(c.pos.x - x, c.pos.z - z) < 140)) continue;
+  const y = Math.max(ground(x, z), 0) + 22 + rand() * 25;
+  const g = new THREE.Group(); g.position.set(x, y, z);
+  const cr = new THREE.Mesh(new THREE.OctahedronGeometry(3.5, 0), crystalMat); cr.scale.y = 1.8; g.add(cr);
+  for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.OctahedronGeometry(1.4, 0), crystalMat); const an = i * 2.1; sm.position.set(Math.cos(an) * 3, -3.5, Math.sin(an) * 3); sm.scale.y = 1.6; sm.rotation.z = Math.cos(an) * 0.5; g.add(sm); }
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(4.5, 0), rockMat); rock.position.y = -6.5; rock.scale.y = 0.6; g.add(rock);
+  const sp = new THREE.Sprite(crystalGlow); sp.scale.set(22, 22, 1); g.add(sp);
+  scene.add(g);
+  crystals.push({ pos: g.position, g, cr, alive: true, r: 8, ph: rand() * 6 });
+}
+const starGeo = new THREE.OctahedronGeometry(1.1, 0), starMat = new THREE.MeshBasicMaterial({ color: 0xffd84a });
+const starGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xffcc33, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.9 });
+for (let line = 0; line < 12; line++) {
+  let x, z, dir, ok = false;
+  for (let k = 0; k < 200 && !ok; k++) { const a = rand() * Math.PI * 2, d = 80 + rand() * 700; x = Math.cos(a) * d; z = Math.sin(a) * d; dir = rand() * Math.PI * 2; ok = Math.hypot(x + Math.cos(dir) * 70, z + Math.sin(dir) * 70) < 850; }
+  let maxG = 0; for (let i = 0; i < 6; i++) maxG = Math.max(maxG, ground(x + Math.cos(dir) * i * 15, z + Math.sin(dir) * i * 15));
+  const baseY = maxG + 18 + rand() * 25, wave = rand() * 10;
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group(); g.position.set(x + Math.cos(dir) * i * 15, baseY + Math.sin(i * 0.9) * wave, z + Math.sin(dir) * i * 15);
+    g.add(new THREE.Mesh(starGeo, starMat)); const sp = new THREE.Sprite(starGlow); sp.scale.set(7, 7, 1); g.add(sp);
+    scene.add(g); stars.push({ pos: g.position, g, alive: true, t: 0, ph: i * 0.6 + line });
+  }
+}
+
+// =====================================================================
+//  Entrées (clavier, souris, manette)
+// =====================================================================
+const keys = {};
+const inp = { x: 0, y: 0, boost: false, power: false };
+let mouseDown = false, invertY = loadOpt('dragons.invert', false), soundOn = loadOpt('dragons.sound', true);
+const prevBtn = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  if (state === 'menu') {
+    const n = parseInt(e.key, 10); if (n >= 1 && n <= 5) startGame(n - 1);
+    else if ((e.code === 'Enter' || e.code === 'Space') && started) startGame(cur);
+    return;
+  }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 5) setDragon(n - 1);
+  else if (e.code === 'Escape') openMenu();
+  else if (e.code === 'KeyC') { fpv = !fpv; flash(fpv ? 'Vue : dans la tête du dragon' : 'Vue : derrière le dragon', 1.4); }
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; });
+renderer.domElement.addEventListener('mousedown', () => { mouseDown = true; });
+addEventListener('mouseup', () => { mouseDown = false; });
+
+function pollInput(dt) {
+  let kx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+  let ky = (keys.ArrowUp || keys.KeyW ? 1 : 0) - (keys.ArrowDown || keys.KeyS ? 1 : 0);
+  let gx = 0, gy = 0, gBoost = false, gPow = false;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of pads) {
+    if (!gp) continue;
+    const dz = v => Math.abs(v) < 0.12 ? 0 : (v - Math.sign(v) * 0.12) / 0.88;
+    gx = dz(gp.axes[0] || 0); gy = -dz(gp.axes[1] || 0);
+    const b = i => gp.buttons[i] && gp.buttons[i].pressed;
+    gPow = b(0) || b(2); gBoost = b(7) || b(6) || b(1);
+    const edge = i => { const p = b(i), was = prevBtn[i]; prevBtn[i] = p; return p && !was; };
+    if (edge(4)) state === 'play' && setDragon((cur + 4) % 5);
+    if (edge(5)) state === 'play' && setDragon((cur + 1) % 5);
+    if (edge(3)) fpv = !fpv;
+    if (edge(9)) { if (state === 'play') openMenu(); else startGame(cur); }
+    if (state === 'menu' && edge(0)) startGame(cur);
+    break;
+  }
+  const tx = Math.abs(gx) > Math.abs(kx) ? gx : kx;
+  let ty = Math.abs(gy) > Math.abs(ky) ? gy : ky;
+  if (invertY) ty = -ty;
+  inp.x = approach(inp.x, tx, dt * (tx === 0 ? 5 : 3.5));
+  inp.y = approach(inp.y, ty, dt * (ty === 0 ? 5 : 3.5));
+  inp.boost = !!(keys.ShiftLeft || keys.ShiftRight || gBoost);
+  inp.power = !!(keys.Space || keys.Enter || mouseDown || gPow);
+}
+
+// =====================================================================
+//  Vol (ultra facile)
+// =====================================================================
+const pos = new THREE.Vector3(0, 30, 0);
+let yaw = 0, pitch = 0, bank = 0, speed = 30, boostE = 1, cool = 0, fpv = false, score = 0, crystalsLeft = 0, starsGot = 0;
+const fwd = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3();
+function fwdVec(out, p = pitch, y = yaw) { return out.set(-Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p)); }
+let turnMsgT = 0, flapPh = 0;
+
+function updateFlight(dt) {
+  const s = DRAGONS[cur];
+  yaw = wrapA(yaw - inp.x * s.turn * dt);
+  let pitchT = inp.y * 0.6;
+  fwdVec(fwd);
+  const here = Math.max(ground(pos.x, pos.z), 0);
+  const ahead = Math.max(ground(pos.x + fwd.x * 40, pos.z + fwd.z * 40), ground(pos.x + fwd.x * 80, pos.z + fwd.z * 80), 0);
+  const safe = Math.max(here, ahead) + 9;
+  if (pos.y < safe + 8) pitchT = Math.max(pitchT, clamp((safe + 8 - pos.y) / 12, 0, 1) * 0.65);  // évite le sol tout seul
+  if (pos.y > 360) pitchT = Math.min(pitchT, -0.1);
+  pitch = lerp(pitch, pitchT, 1 - Math.exp(-3 * dt));
+  bank = lerp(bank, -inp.x * 0.7 - inp.x * (inp.boost ? 0.15 : 0), 1 - Math.exp(-4 * dt));
+  // ne pas sortir de la vallée : demi-tour automatique
+  const d = Math.hypot(pos.x, pos.z);
+  if (d > LIMIT) {
+    const want = Math.atan2(pos.x, pos.z);
+    yaw = wrapA(yaw + wrapA(want - yaw) * clamp((d - LIMIT) / 120, 0.1, 1) * 2.2 * dt);
+    if (turnMsgT <= 0) { hint('Demi-tour ! Les cristaux sont dans la vallée', 2); turnMsgT = 3; }
+  }
+  turnMsgT -= dt;
+  const boosting = inp.boost && boostE > 0.02;
+  if (boosting) boostE = Math.max(0, boostE - dt * 0.3); else boostE = Math.min(1, boostE + dt * 0.12);
+  const spT = s.speed * (boosting ? 1.8 : 1) * (1 - pitch * 0.35);
+  speed = lerp(speed, spT, 1 - Math.exp(-2 * dt));
+  fwdVec(fwd);
+  pos.addScaledVector(fwd, speed * dt);
+  const minY = Math.max(ground(pos.x, pos.z), 0) + 4;
+  if (pos.y < minY) pos.y = lerp(pos.y, minY, 1 - Math.exp(-12 * dt)) + 0.0;
+  if (pos.y < minY - 2) pos.y = minY - 2;
+  rig.position.copy(pos);
+  rig.rotation.set(pitch, yaw, bank, 'YXZ');
+  return boosting;
+}
+
+// =====================================================================
+//  Pouvoirs
+// =====================================================================
+const shots = [], bolts = [];
+const fireballMat = new THREE.MeshBasicMaterial({ color: 0xffb347 }), waterMat = new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.9 });
+const boulderMat = std(0x7a6040, { roughness: 1 });
+function nearestCrystal(from, dir, cone, range) {
+  let best = null, bd = Infinity;
+  for (const c of crystals) {
+    if (!c.alive) continue;
+    _w.subVectors(c.pos, from); const d = _w.length(); if (d > range) continue;
+    if (_w.divideScalar(d).dot(dir) < cone) continue;
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+function usePower() {
+  const s = DRAGONS[cur]; cool = s.cd;
+  rig.updateMatrixWorld(true);
+  const m = dragon.mouth.getWorldPosition(new THREE.Vector3());
+  fwdVec(fwd);
+  const target = nearestCrystal(m, fwd, 0.8, 320);
+  const dir = target ? _v.subVectors(target.pos, m).normalize().clone() : fwd.clone();
+  sfxPower(s.id);
+  if (s.id === 'foudre') {
+    const end = target ? target.pos.clone() : m.clone().addScaledVector(dir, 160);
+    makeBolt(m, end);
+    if (target) hitCrystal(target, 'foudre');
+    else burst(end, 'foudre', 20);
+    return;
+  }
+  const sh = { type: s.id, pos: m.clone(), vel: dir.multiplyScalar(s.id === 'terre' ? 75 : s.id === 'vent' ? 70 : 95).add(fwd.clone().multiplyScalar(speed * 0.5)), life: 3, target, r: 2, mesh: null, spin: new THREE.Vector3(R(), R(), R()).multiplyScalar(8) };
+  if (s.id === 'feu') { sh.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.3, 10, 8), fireballMat); sh.r = 3; }
+  if (s.id === 'eau') { sh.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 8), waterMat); sh.r = 3; }
+  if (s.id === 'terre') { sh.mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4, 0), boulderMat); sh.r = 5; }
+  if (s.id === 'vent') { sh.mesh = new THREE.Mesh(new THREE.TorusGeometry(2, 0.5, 6, 24), new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.7, depthWrite: false })); sh.r = 4; sh.life = 2; }
+  sh.mesh.position.copy(sh.pos); scene.add(sh.mesh); shots.push(sh);
+}
+function updateShots(dt) {
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i]; s.life -= dt;
+    if (s.target && s.target.alive) {   // tir à tête chercheuse
+      const sp = s.vel.length(); _v.subVectors(s.target.pos, s.pos).normalize().multiplyScalar(sp);
+      s.vel.lerp(_v, 1 - Math.exp(-6 * dt)).setLength(sp);
+    } else if (!s.target) {
+      const t = nearestCrystal(s.pos, _w.copy(s.vel).normalize(), 0.85, 120); if (t) s.target = t;
+    }
+    if (s.type === 'terre') s.vel.y -= 6 * dt;
+    s.pos.addScaledVector(s.vel, dt); s.mesh.position.copy(s.pos);
+    const p = s.pos;
+    switch (s.type) {
+      case 'feu': for (let k = 0; k < 4; k++) glowP.emit(p.x + R(), p.y + R(), p.z + R(), R() * 3, R() * 3 + 2, R() * 3, 0.45, 1, 0.4 + Math.random() * 0.3, 0.05, 2.6, -3, 0.8); break;
+      case 'eau': for (let k = 0; k < 3; k++) mattP.emit(p.x + R(), p.y + R(), p.z + R(), R() * 3, R() * 2, R() * 3, 0.5, 0.6, 0.88, 1, 1.0, 12, 0); glowP.emit(p.x, p.y, p.z, 0, 0, 0, 0.25, 0.1, 0.35, 0.6, 3, 0, 0); break;
+      case 'terre': s.mesh.rotation.x += s.spin.x * dt; s.mesh.rotation.y += s.spin.y * dt; if (Math.random() < 0.6) mattP.emit(p.x, p.y, p.z, R() * 2, R() * 2, R() * 2, 0.7, 0.55, 0.45, 0.32, 2.2, 2, 1.2); break;
+      case 'vent': { s.mesh.lookAt(_v.copy(p).add(s.vel)); const sc = 1 + (2 - s.life) * 2.2; s.mesh.scale.setScalar(sc); s.r = 2.5 * sc + 2; s.mesh.material.opacity = 0.7 * (s.life / 2); s.mesh.rotation.z += dt * 10; if (Math.random() < 0.7) glowP.emit(p.x + R() * 4 * sc, p.y + R() * 4 * sc, p.z + R() * 4 * sc, R() * 4, R() * 4, R() * 4, 0.5, 0.35, 0.45, 0.5, 3, 0, 1); break; }
+    }
+    let done = s.life <= 0;
+    for (const c of crystals) if (c.alive && c.pos.distanceTo(p) < c.r + s.r) { hitCrystal(c, s.type); done = s.type !== 'vent'; if (done) break; }
+    if (!done && p.y < Math.max(ground(p.x, p.z), 0)) { burst(p, s.type, 30, 12); if (s.type === 'eau' || s.type === 'terre') sfxThud(); done = true; }
+    if (done) { scene.remove(s.mesh); s.mesh.geometry.dispose(); if (s.type === 'vent') s.mesh.material.dispose(); shots.splice(i, 1); }
+  }
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i]; b.life -= dt;
+    b.lines.forEach(l => { l.material.opacity = Math.max(0, b.life / 0.3); });
+    if (b.life <= 0) { b.lines.forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); }); bolts.splice(i, 1); }
+  }
+}
+function makeBolt(a, b) {
+  const lines = [];
+  for (const [col, jit] of [[0xffffff, 1.5], [0xfff04a, 3.5], [0x9ff7ff, 5]]) {
+    const pts = [], n = 16;
+    for (let i = 0; i <= n; i++) {
+      const p = a.clone().lerp(b, i / n);
+      if (i > 0 && i < n) { const k = jit * Math.sin(i / n * Math.PI); p.x += R() * k; p.y += R() * k; p.z += R() * k; }
+      pts.push(p);
+    }
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false }));
+    scene.add(l); lines.push(l);
+    if (col === 0xffffff) for (const p of pts) glowP.emit(p.x, p.y, p.z, R() * 4, R() * 4, R() * 4, 0.3, 1, 0.95, 0.55, 2.4, 0, 0);
+  }
+  bolts.push({ lines, life: 0.3 });
+}
+function hitCrystal(c, el) {
+  if (!c.alive) return;
+  c.alive = false; c.g.visible = false; crystalsLeft--;
+  burst(c.pos, 'cristal', 70, 22); burst(c.pos, el, 50, 18);
+  score += 100; sfxCrystal();
+  if (crystalsLeft === 0) { flash('🏆 BRAVO ! Tous les cristaux sont détruits !', 4); setTimeout(respawnCrystals, 6000); }
+  else flash(`💎 Cristal détruit ! Encore ${crystalsLeft}`, 1.6);
+}
+function respawnCrystals() { crystals.forEach(c => { c.alive = true; c.g.visible = true; }); crystalsLeft = crystals.length; flash('De nouveaux cristaux sont apparus !', 2.5); }
+
+// =====================================================================
+//  Son (WebAudio)
+// =====================================================================
+let AC = null, master = null, noiseBuf = null, windG = null, windF = null;
+function initAudio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  master = AC.createGain(); master.gain.value = soundOn ? 0.6 : 0; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; windF = AC.createBiquadFilter(); windF.type = 'bandpass'; windF.frequency.value = 500; windF.Q.value = 0.6;
+  windG = AC.createGain(); windG.gain.value = 0; src.connect(windF); windF.connect(windG); windG.connect(master); src.start();
+}
+function noise(dur, type, f0, f1, vol) {
+  if (!AC) return; const t = AC.currentTime, s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const f = AC.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+function tone(type, f0, f1, dur, vol, delay = 0) {
+  if (!AC) return; const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+function sfxPower(id) {
+  if (id === 'feu') noise(0.45, 'lowpass', 1800, 250, 0.55);
+  if (id === 'eau') { noise(0.35, 'bandpass', 3000, 700, 0.45); tone('sine', 700, 1400, 0.12, 0.08); }
+  if (id === 'terre') { tone('sine', 110, 40, 0.45, 0.6); noise(0.3, 'lowpass', 500, 120, 0.4); }
+  if (id === 'vent') noise(0.7, 'bandpass', 500, 3000, 0.4);
+  if (id === 'foudre') { tone('square', 1400, 120, 0.2, 0.12); noise(0.2, 'highpass', 2500, 7000, 0.35); }
+}
+const sfxThud = () => noise(0.25, 'lowpass', 600, 100, 0.3);
+const sfxStar = () => { tone('triangle', 1046, 1568, 0.12, 0.18); tone('triangle', 1568, 2093, 0.15, 0.14, 0.07); };
+const sfxCrystal = () => { tone('triangle', 880, 1760, 0.3, 0.2); tone('sine', 1320, 2640, 0.4, 0.12, 0.05); noise(0.4, 'highpass', 4000, 9000, 0.25); };
+const sfxSwitch = () => { tone('sine', 400, 900, 0.25, 0.2); };
+
+// =====================================================================
+//  HUD
+// =====================================================================
+const hud2d = $('#hud2d'), h2 = hud2d.getContext('2d');
+let W = 0, H = 0, msgT = 0, hintT = 0;
+function flash(t, d = 2) { $('#msg').textContent = t; $('#msg').style.opacity = 1; msgT = d; }
+function hint(t, d = 2) { $('#hint').textContent = t; $('#hint').style.opacity = 1; hintT = d; }
+function buildChips() {
+  const c = $('#chips'); c.innerHTML = '';
+  DRAGONS.forEach((d, i) => { const el = document.createElement('div'); el.className = 'chip'; el.style.color = d.css; el.innerHTML = `${d.icon}<b>${i + 1}</b>`; el.title = d.el; el.onclick = () => setDragon(i); c.appendChild(el); });
+}
+function updateHud() {
+  const s = DRAGONS[cur];
+  $('#dName').innerHTML = `${s.icon} <span style="color:${s.css}">${s.name}</span> <span style="font-size:15px;opacity:.85">${s.el}</span>`;
+  $('#score').textContent = `⭐ ${score} points`;
+  $('#cCount').textContent = `${crystals.length - crystalsLeft}/${crystals.length}`;
+  $('#oCount').textContent = String(starsGot);
+  $('#powLabel').textContent = s.power;
+  $('#powBar').style.width = (100 * (1 - cool / s.cd)) + '%';
+  $('#powBar').style.background = s.css;
+  $('#boostBar').style.width = (boostE * 100) + '%';
+  [...$('#chips').children].forEach((c, i) => c.classList.toggle('on', i === cur));
+}
+function drawHud2d() {
+  h2.clearRect(0, 0, W, H);
+  if (state !== 'play') return;
+  // repères sur les cristaux + flèche vers le plus proche
+  let nearest = null, nd = Infinity;
+  for (const c of crystals) {
+    if (!c.alive) continue;
+    const d = c.pos.distanceTo(pos); if (d < nd) { nd = d; nearest = c; }
+    _v.copy(c.pos).applyMatrix4(cam.matrixWorldInverse);
+    if (_v.z < 0) {
+      _v.copy(c.pos).project(cam); const x = (_v.x + 1) / 2 * W, y = (1 - _v.y) / 2 * H;
+      if (x > 0 && x < W && y > 0 && y < H) {
+        const r = clamp(900 / d, 10, 34);
+        h2.strokeStyle = 'rgba(200,140,255,.95)'; h2.lineWidth = 3; h2.beginPath(); h2.arc(x, y, r, 0, 7); h2.stroke();
+        h2.font = '700 13px "Trebuchet MS",sans-serif'; h2.fillStyle = '#fff'; h2.textAlign = 'center'; h2.fillText(Math.round(d) + ' m', x, y + r + 14);
+      }
+    }
+  }
+  if (nearest) {
+    _v.copy(nearest.pos).applyMatrix4(cam.matrixWorldInverse);
+    let on = false, sx, sy;
+    if (_v.z < 0) { _w.copy(nearest.pos).project(cam); sx = (_w.x + 1) / 2 * W; sy = (1 - _w.y) / 2 * H; on = sx > 40 && sx < W - 40 && sy > 40 && sy < H - 40; }
+    else { sx = W / 2 + _v.x * 1000; sy = H / 2 - _v.y * 1000; }
+    if (!on) {
+      const a = Math.atan2(sy - H / 2, sx - W / 2), rr = Math.min(W, H) * 0.38, ax = W / 2 + Math.cos(a) * rr, ay = H / 2 + Math.sin(a) * rr, s = 20;
+      h2.fillStyle = '#c58cff'; h2.strokeStyle = '#fff'; h2.lineWidth = 3; h2.beginPath();
+      h2.moveTo(ax + Math.cos(a) * s, ay + Math.sin(a) * s); h2.lineTo(ax + Math.cos(a + 2.4) * s, ay + Math.sin(a + 2.4) * s); h2.lineTo(ax + Math.cos(a - 2.4) * s, ay + Math.sin(a - 2.4) * s); h2.closePath(); h2.stroke(); h2.fill();
+    }
+  }
+  // radar
+  const RR = Math.min(80, W * 0.12), cx = W - RR - 16, cy = H - RR - 16, sc = RR / 950;
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = -fz, rz = fx;
+  h2.fillStyle = 'rgba(0,0,0,.35)'; h2.strokeStyle = 'rgba(255,255,255,.7)'; h2.lineWidth = 2; h2.beginPath(); h2.arc(cx, cy, RR, 0, 7); h2.fill(); h2.stroke();
+  const dot = (x, z, r, col) => { const dx = x - pos.x, dz = z - pos.z; let px = (dx * rx + dz * rz) * sc, py = -(dx * fx + dz * fz) * sc; const L = Math.hypot(px, py); if (L > RR - 4) { px *= (RR - 4) / L; py *= (RR - 4) / L; } h2.fillStyle = col; h2.beginPath(); h2.arc(cx + px, cy + py, r, 0, 7); h2.fill(); };
+  stars.forEach(s => s.alive && dot(s.pos.x, s.pos.z, 1.8, '#ffd84a'));
+  crystals.forEach(c => c.alive && dot(c.pos.x, c.pos.z, 4, '#c58cff'));
+  h2.fillStyle = DRAGONS[cur].css; h2.beginPath(); h2.moveTo(cx, cy - 8); h2.lineTo(cx + 6, cy + 6); h2.lineTo(cx - 6, cy + 6); h2.closePath(); h2.fill();
+}
+
+// =====================================================================
+//  Menu / états
+// =====================================================================
+let state = 'menu', started = false, menuAng = 0;
+function buildCards() {
+  const c = $('#cards'); c.innerHTML = '';
+  DRAGONS.forEach((d, i) => {
+    const el = document.createElement('div'); el.className = 'card'; el.style.setProperty('--c', d.css);
+    const bar = (l, v) => `<div class="stat"><span>${l}</span><div class="sb"><i style="width:${v * 20}%"></i></div></div>`;
+    el.innerHTML = `<div class="ic">${d.icon}</div><h2>${d.name}</h2><div class="el">${d.el}</div><div class="pw">Pouvoir : ${d.power}</div>${bar('Vitesse', d.stats[0])}${bar('Virage', d.stats[1])}${bar('Puissance', d.stats[2])}<div class="go">Jouer (${i + 1})</div>`;
+    el.onmouseenter = () => showDragon(i);
+    el.onclick = () => startGame(i);
+    c.appendChild(el);
+  });
+}
+function showDragon(i) {
+  cur = i; dragons.forEach((d, k) => d.root.visible = k === i); dragon = dragons[i];
+  auraLight.color.setRGB(...EL_COL[DRAGONS[i].id]);
+  [...$('#cards').children].forEach((c, k) => c.classList.toggle('sel', k === i));
+}
+function setDragon(i) {
+  if (i === cur && state === 'play') return;
+  showDragon(i); rig.updateMatrixWorld(true); burst(pos, DRAGONS[i].id, 80, 20); burst(pos, 'etoile', 30, 14);
+  sfxSwitch(); flash(`${DRAGONS[i].icon} ${DRAGONS[i].name}, ${DRAGONS[i].el} !`, 1.6); cool = 0;
+}
+function startGame(i) {
+  initAudio();
+  $('#menu').hidden = true; $('#hud').hidden = false;
+  if (!started) {
+    started = true; pos.set(0, 30, 0); yaw = 0; pitch = 0.1; speed = DRAGONS[i].speed;
+    showDragon(i);
+    flash(`${DRAGONS[i].icon} C'est parti avec ${DRAGONS[i].name} !`, 2.2);
+    hint('Détruis les cristaux violets avec ton pouvoir (Espace) et attrape les étoiles !', 5);
+  } else if (i !== cur) setDragon(i);
+  state = 'play';
+}
+function openMenu() { state = 'menu'; $('#menu').hidden = false; $('#hud').hidden = true; showDragon(cur); }
+$('#optInvert').checked = invertY; $('#optInvert').onchange = e => { invertY = e.target.checked; saveOpt('dragons.invert', invertY); };
+$('#optSound').checked = soundOn; $('#optSound').onchange = e => { soundOn = e.target.checked; saveOpt('dragons.sound', soundOn); if (master) master.gain.value = soundOn ? 0.6 : 0; };
+
+// =====================================================================
+//  Boucle principale
+// =====================================================================
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  hud2d.width = innerWidth * dpr; hud2d.height = innerHeight * dpr; W = innerWidth; H = innerHeight; h2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sc = innerHeight * renderer.getPixelRatio() / 2; glowP.mat.uniforms.scale.value = sc; mattP.mat.uniforms.scale.value = sc;
+}
+addEventListener('resize', resize);
+buildCards(); buildChips(); resize();
+crystalsLeft = crystals.length;
+showDragon(0);
+rig.position.set(0, 22, 0);
+
+let last = performance.now(), time = 0;
+function animateDragon(dt, boosting) {
+  const s = DRAGONS[cur];
+  const diving = pitch < -0.25 && state === 'play';
+  const freq = boosting ? 2.6 : diving ? 0.5 : 1.3, amp = boosting ? 0.75 : diving ? 0.12 : 0.5;
+  flapPh += dt * freq * Math.PI * 2;
+  const a = Math.sin(flapPh) * amp + 0.1, b = Math.sin(flapPh - 0.9) * amp * 0.8;
+  for (const w of dragon.wings) { w.root.rotation.set(0, -w.side * 0.05 * Math.cos(flapPh), w.side * a); w.elbow.rotation.set(0, 0, w.side * b); }
+  dragon.tail.forEach((t, i) => { t.rotation.y = Math.sin(time * 2.2 - i * 0.6) * 0.09 * (1 + i * 0.15) + inp.x * 0.08; t.rotation.x = Math.sin(time * 1.5 - i * 0.5) * 0.05; });
+  // traînée élémentaire
+  rig.updateMatrixWorld(true);
+  const tips = dragon.tips.map(t => t.getWorldPosition(new THREE.Vector3()));
+  const tt = dragon.tailTip.getWorldPosition(new THREE.Vector3());
+  const n = boosting ? 3 : 1;
+  for (let k = 0; k < n; k++) switch (s.id) {
+    case 'feu': glowP.emit(tt.x + R(), tt.y + R(), tt.z + R(), R() * 2, R() * 2 + 1.5, R() * 2, 0.6, 1, 0.35 + Math.random() * 0.3, 0.05, 1.6, -2, 0.5); break;
+    case 'eau': for (const p of tips) mattP.emit(p.x, p.y, p.z, R(), -1, R(), 0.8, 0.6, 0.88, 1, 0.7, 9, 0); break;
+    case 'terre': if (Math.random() < 0.5) mattP.emit(tt.x + R(), tt.y, tt.z + R(), R() * 2, -1, R() * 2, 1.0, 0.5, 0.4, 0.28, 1.4, 4, 1); break;
+    case 'vent': for (const p of tips) glowP.emit(p.x, p.y, p.z, 0, 0, 0, 0.7, 0.35, 0.42, 0.45, 1.2, 0, 0.3); break;
+    case 'foudre': if (Math.random() < 0.7) { const p = Math.random() < 0.5 ? tips[(Math.random() * 2) | 0] : tt; glowP.emit(p.x, p.y, p.z, R() * 10, R() * 10, R() * 10, 0.18, 1, 0.95, 0.5, 1.0, 0, 0); } break;
+  }
+  auraLight.intensity = s.id === 'foudre' ? 1.2 + Math.random() * 1.2 : 0.8;
+}
+function updateWorld(dt) {
+  crystals.forEach(c => { if (c.alive) { c.cr.rotation.y += dt * 0.8; c.g.position.y += Math.sin(time * 1.2 + c.ph) * 0.02; } });
+  for (const s of stars) {
+    if (!s.alive) { s.t -= dt; if (s.t <= 0) { s.alive = true; s.g.visible = true; } continue; }
+    s.g.rotation.y += dt * 2.5;
+    s.g.children[0].scale.setScalar(1 + Math.sin(time * 4 + s.ph) * 0.15);
+    if (state === 'play' && s.pos.distanceTo(pos) < 8 * DRAGONS[cur].scale) {
+      s.alive = false; s.g.visible = false; s.t = 25; starsGot++; score += 10; boostE = Math.min(1, boostE + 0.2);
+      burst(s.pos, 'etoile', 25, 10); sfxStar();
+    }
+  }
+}
+function updateCamera(dt, boosting) {
+  if (state === 'menu') {
+    menuAng += dt * 0.35;
+    rig.position.set(0, 22 + Math.sin(time * 1.3) * 0.8, 0); rig.rotation.set(0.05, menuAng * 0.0 + Math.PI * 0.15, 0, 'YXZ');
+    cam.position.set(Math.sin(menuAng) * 34, 34 + Math.sin(menuAng * 0.7) * 3, Math.cos(menuAng) * 34);
+    cam.lookAt(0, 20, 0);
+    return;
+  }
+  if (fpv) {
+    dragon.head.getWorldPosition(cam.position);
+    cam.rotation.set(pitch, yaw, bank * 0.5, 'YXZ');
+  } else {
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), back = 17 * DRAGONS[cur].scale;
+    _v.set(pos.x - fx * back, pos.y + 5.5 - pitch * 7, pos.z - fz * back);
+    const gmin = Math.max(ground(_v.x, _v.z), 0) + 3; if (_v.y < gmin) _v.y = gmin;
+    cam.position.lerp(_v, 1 - Math.exp(-5 * dt));
+    fwdVec(fwd); cam.lookAt(pos.x + fwd.x * 12, pos.y + fwd.y * 12 + 2, pos.z + fwd.z * 12);
+  }
+  const f = (fpv ? 85 : 68) + (boosting ? 14 : 0);
+  if (Math.abs(cam.fov - f) > 0.1) { cam.fov = lerp(cam.fov, f, 1 - Math.exp(-4 * dt)); cam.updateProjectionMatrix(); }
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clamp((now - last) / 1000, 0, 0.05); last = now; time += dt;
+  pollInput(dt);
+  let boosting = false;
+  if (state === 'play') {
+    boosting = updateFlight(dt);
+    cool = Math.max(0, cool - dt);
+    if (inp.power && cool <= 0) usePower();
+    updateShots(dt);
+    if (msgT > 0) { msgT -= dt; if (msgT <= 0) $('#msg').style.opacity = 0; }
+    if (hintT > 0) { hintT -= dt; if (hintT <= 0) $('#hint').style.opacity = 0; }
+    updateHud();
+  }
+  updateCamera(dt, boosting);
+  animateDragon(dt, boosting);
+  updateWorld(dt);
+  glowP.update(dt); mattP.update(dt);
+  if (windG) { windG.gain.setTargetAtTime(state === 'play' ? 0.05 + (speed / 70) ** 2 * 0.3 : 0, AC.currentTime, 0.2); windF.frequency.setTargetAtTime(300 + speed * 15, AC.currentTime, 0.2); }
+  cam.getWorldPosition(sky.position);
+  renderer.render(scene, cam);
+  drawHud2d();
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
