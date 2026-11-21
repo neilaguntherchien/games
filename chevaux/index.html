@@ -81,7 +81,7 @@
   /* tactile */
   #touch{display:none;position:fixed;inset:0;pointer-events:none}
   body.touch.playing #touch{display:block}
-  body.touch #help{display:none}
+  body.touch #help,body.touch #quitBtn{display:none}
   #padL,#padR{position:absolute;top:0;bottom:0;pointer-events:auto;touch-action:none}
   #padL{left:0;width:45%} #padR{right:0;width:55%}
   #joy{position:absolute;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);pointer-events:none}
@@ -116,7 +116,8 @@
     <div id="gaits"><span>Recul</span><span>Arrêt</span><span>Pas</span><span>Trot</span><span>Galop</span></div>
     <div id="enBar"><div id="enFill"></div></div><div id="enT">Énergie</div>
   </div>
-  <div id="help"><b>Z</b>/<b>↑</b> plus vite · <b>S</b>/<b>↓</b> moins vite · <b>Q</b> <b>D</b> tourner · <b>Espace</b> sauter · <b>V</b> vue · <b>P</b> pause</div>
+  <div id="help"></div>
+  <button id="quitBtn" class="bt alt" style="position:absolute;top:12px;left:12px;pointer-events:auto">II Pause / Quitter</button>
 </div>
 
 <div id="st" hidden>
@@ -137,6 +138,7 @@
     <h3>Concours 🏆</h3><div id="actsC"></div>
     <button class="bt wide" id="bMarket">🐎 Mes chevaux et le marché</button>
     <label class="chk"><input type="checkbox" id="voice"> Voix du moniteur</label>
+    <a class="bt wide alt" href="../" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">🏠 Quitter (retour aux jeux)</a>
   </div>
   <div class="pnl" id="stSub" hidden></div>
   <div class="pnl" id="stMk" hidden></div>
@@ -707,7 +709,10 @@ addEventListener('keydown', e => {
     if ((e.code === 'KeyS' || e.code === 'ArrowDown') && (!e.repeat || time - gdT > .3)){ gdQ = -1; gdT = time; }
     if (e.code === 'KeyV' && !e.repeat) third = !third;
   }
-  if ((e.code === 'KeyP' || e.code === 'Escape') && !e.repeat){ if (state === 'play') pause(); else if (state === 'pause') resume(); }
+  if ((e.code === 'KeyP' || e.code === 'Escape') && !e.repeat){
+    if (state === 'play') pause(); else if (state === 'pause') resume();
+    else if (state === 'stable' && sub && e.code === 'Escape') closeSub();          // Échap ferme aussi brossage, repas, sellage et marché
+  }
   keys[e.code] = true;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
 });
@@ -1081,7 +1086,7 @@ function startAct(id){
   third = true;
   $('st').hidden = true; $('panel').hidden = true; $('hud').hidden = false; $('gaitBox').hidden = !act.ride;
   $('tJump').hidden = !act.ride;
-  $('help').innerHTML = act.ride ? '<b>Z</b>/<b>↑</b> plus vite · <b>S</b>/<b>↓</b> moins vite · <b>Q</b> <b>D</b> tourner · <b>Espace</b> sauter · <b>V</b> vue · <b>P</b> pause' : '<b>Z</b> <b>Q</b> <b>S</b> <b>D</b> marcher · <b>Maj</b> courir · <b>V</b> vue · <b>P</b> pause';
+  $('help').innerHTML = act.ride ? '<b>Z</b>/<b>↑</b> plus vite · <b>S</b>/<b>↓</b> moins vite · <b>Q</b> <b>D</b> tourner · <b>Espace</b> sauter · <b>V</b> vue · <b>Échap</b> pause / quitter' : '<b>Z</b> <b>Q</b> <b>S</b> <b>D</b> marcher · <b>Maj</b> courir · <b>V</b> vue · <b>Échap</b> pause / quitter';
   state = 'play';
   if (act.concours) say(act.title + ' ! Attention…'); else neigh();
 }
@@ -1108,7 +1113,14 @@ function finishAct(){
   if (r.place === 1) say('Bravo ! Tu as gagné !'); else if (r.place) say('Bien joué !');
   panel(h, [['Retour à l\'écurie', toStable], ['Recommencer', () => { $('panel').hidden = true; startAct(actId); }, 1]]);
 }
-function pause(){ state = 'pause'; panel('<h1>Pause</h1><p class="sub">' + esc(act.title) + '</p>', [['Reprendre', resume], [act.concours ? 'Abandonner' : 'Terminer', () => { if (act.concours){ endAct(); store(); toStable(); } else { $('panel').hidden = true; finishAct(); } }, 1]]); }
+function pause(){
+  state = 'pause';
+  panel('<h1>Pause</h1><p class="sub">' + esc(act.title) + '</p>', [
+    ['▶ Reprendre', resume],
+    [act.concours ? '🏳 Abandonner le concours' : '🏁 Terminer et rentrer', () => { if (act.concours){ endAct(); store(); toStable(); } else { $('panel').hidden = true; finishAct(); } }, 1],
+    ['🏠 Quitter le jeu', () => { endAct(); store(); location.href = '../'; }, 1]
+  ]);
+}
 function resume(){ $('panel').hidden = true; state = 'play'; }
 function panel(html, btns){
   const b = $('panelBox'); b.innerHTML = html;
@@ -1151,6 +1163,7 @@ actButtons();
 for (const el of document.querySelectorAll('[data-sub]')) el.onclick = () => { audio(); if (el.dataset.sub === 'saddle' && saddled(care())){ const c = care(); for (const k in c.tack) c.tack[k] = false; setTack(pm, c.tack); store(); refreshStable(); tip(c.name + ' est dessellé.'); snort(); return; } openSub(el.dataset.sub); };
 $('bRest').onclick = () => { audio(); const c = care(); c.energie = 100; c.faim = clamp(c.faim - 8, 0, 100); c.bonheur = clamp(c.bonheur + 3, 0, 100); store(); refreshStable(); tip('Zzz… ' + c.name + ' s\'est bien reposé : énergie au maximum !'); snort(); };
 $('bMarket').onclick = () => { audio(); openSub('market'); };
+$('quitBtn').onclick = () => { if (state === 'play') pause(); };
 $('voice').checked = save.voice !== false;
 $('voice').onchange = e => { save.voice = e.target.checked; store(); if (save.voice){ audio(); say('Bonjour ! Prêt pour une balade ?'); } };
 let feedBusy = 0, food = null, brushing = false;
