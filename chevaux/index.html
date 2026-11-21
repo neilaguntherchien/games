@@ -35,6 +35,10 @@
   #stMk{right:max(12px,env(safe-area-inset-right));top:12px;bottom:12px;width:min(430px,calc(100% - 24px))}
   .hn input{font:inherit;font-size:22px;font-weight:800;background:transparent;border:0;border-bottom:1px dashed rgba(255,255,255,.35);color:#fff;width:100%;padding:0 0 2px}
   .hn small{display:block;opacity:.75;margin:2px 0 10px}
+  .hn input:hover,.hn input:focus{background:rgba(255,255,255,.1);outline:none;border-bottom-color:#ffe066}
+  .hn input::placeholder{color:rgba(255,255,255,.45);font-size:16px;font-weight:600}
+  .lbl{display:block;font-size:12px;opacity:.75;margin-bottom:2px}
+  .lbl i{font-style:normal;opacity:.8}
   .bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:14px;font-weight:600}
   .bar span{width:72px}
   .bar div{flex:1;height:12px;border-radius:6px;background:rgba(0,0,0,.4);overflow:hidden}
@@ -122,7 +126,7 @@
 
 <div id="st" hidden>
   <div class="pnl" id="stL">
-    <div class="hn"><input id="hName" maxlength="16" aria-label="Nom du cheval"><small id="hBreed"></small></div>
+    <div class="hn"><label class="lbl" for="hName">Nom du cheval ✏️ <i>(clique pour le changer)</i></label><input id="hName" maxlength="16"><small id="hBreed"></small></div>
     <div id="bars"></div>
     <div class="row">
       <button class="bt" data-sub="brush">✨ Brosser</button>
@@ -133,7 +137,8 @@
     <div class="tip" id="stTip"></div>
   </div>
   <div class="pnl" id="stR">
-    <div id="ptsLine"></div>
+    <div class="hn"><label class="lbl" for="pName">Ton prénom ✏️</label><input id="pName" maxlength="16" placeholder="Écris ton prénom ici"></div>
+    <div id="ptsLine" style="margin-top:8px"></div>
     <h3>Activités</h3><div id="actsA"></div>
     <h3>Concours 🏆</h3><div id="actsC"></div>
     <button class="bt wide" id="bMarket">🐎 Mes chevaux et le marché</button>
@@ -188,6 +193,8 @@ if (!save.owned.welsh) save.owned.welsh = newCare('Caramel');
 if (!save.owned[save.cur]) save.cur = 'welsh';
 const store = () => { try { localStorage.setItem('ranch.save', JSON.stringify(save)); } catch(e) {} };
 const care = () => save.owned[save.cur];
+const player = () => (save.player || '').trim();
+const meName = () => (player() || 'Toi') + ' & ' + care().name;
 const curB = () => B(save.cur);
 const saddled = c => c.tack.pad && c.tack.saddle && c.tack.girth && c.tack.bridle;
 
@@ -917,7 +924,7 @@ function taskRace(){
         const na = angOf(o.x, o.z); o.prog += angDiff(na - o.th); o.th = na;
         if (!o.fin && o.prog >= goal){ o.fin = timer; fins.push({ n:o.name, t:timer }); }
       }
-      if (R.prog >= goal){ fins.push({ n:care().name + ' (toi)', t:timer, me:true }); this.done = true; cheer(); neigh(); }
+      if (R.prog >= goal){ fins.push({ n:meName(), t:timer, me:true }); this.done = true; cheer(); neigh(); }
     },
     text(){
       const lap = Math.min(LAPS, Math.floor(Math.max(0, R.prog)/(Math.PI*2)) + 1);
@@ -956,7 +963,7 @@ function taskJump(){
     cleanup(){},
     result(){
       const RT = [[0, 31], [4, 27], [0, 36], [8, 29], [0, 40], [4, 33]];
-      const rows = RIVALS.map((n, i) => ({ n, f:RT[i][0], t:RT[i][1] + Math.random()*4 - 2 })).concat({ n:care().name + ' (toi)', f:faults, t:timer, me:true });
+      const rows = RIVALS.map((n, i) => ({ n, f:RT[i][0], t:RT[i][1] + Math.random()*4 - 2 })).concat({ n:meName(), f:faults, t:timer, me:true });
       rows.forEach(r => r.k = r.f*1000 + r.t);
       const rt = rankTable(rows, true, r => r.f + ' pt' + (r.f > 1 ? 's' : '') + ' · ' + fmt(r.t));
       return { title:rt.place === 1 ? '🥇 Victoire !' : rt.place <= 3 ? '🏅 ' + rt.place + 'e place !' : rt.place + 'e place', sub:'Ton parcours : <b>' + faults + ' point' + (faults > 1 ? 's' : '') + ' de pénalité</b> en <b>' + fmt(timer) + '</b>' + rt.html, pts:PRIZE[rt.place], place:rt.place, care:{ faim:-18, prop:-25, bonheur:rt.place === 1 ? 15 : 6 } };
@@ -985,7 +992,7 @@ function taskGym(){
     cleanup(){},
     result(){
       const tot = timer + faults*5, RT = [27, 31, 24, 35, 29, 39];
-      const rows = RIVALS.map((n, i) => ({ n, t:RT[i] + Math.random()*2.5 - 1.2 })).concat({ n:care().name + ' (toi)', t:tot, me:true });
+      const rows = RIVALS.map((n, i) => ({ n, t:RT[i] + Math.random()*2.5 - 1.2 })).concat({ n:meName(), t:tot, me:true });
       rows.forEach(r => r.k = r.t);
       const rt = rankTable(rows, true, r => fmt(r.t));
       return { title:rt.place === 1 ? '🥇 Victoire !' : rt.place <= 3 ? '🏅 ' + rt.place + 'e place !' : rt.place + 'e place', sub:'Ton temps : <b>' + fmt(timer) + '</b>' + (faults ? ' + ' + faults*5 + ' s de pénalité = <b>' + fmt(tot) + '</b>' : '') + rt.html, pts:PRIZE[rt.place], place:rt.place, care:{ faim:-15, prop:-20, bonheur:rt.place === 1 ? 15 : 6 } };
@@ -1110,7 +1117,9 @@ function finishAct(){
   let h = '<h1>' + r.title + '</h1><p class="sub">' + r.sub + '</p>';
   h += '<p class="sub">' + (pts ? '🏅 <b>+' + pts + ' points</b>' : 'Pas de points cette fois') + bonus + (r.place === 1 ? '<br>🎀 Tu gagnes une rosette !' : '') + '</p>';
   h += '<p class="sub" style="opacity:.7">' + esc(c.name) + ' a besoin de soins : il a faim, il est sale et un peu fatigué. Occupe-toi de lui à l\'écurie !</p>';
-  if (r.place === 1) say('Bravo ! Tu as gagné !'); else if (r.place) say('Bien joué !');
+  const pn = player();
+  if (r.place === 1) say('Bravo ' + (pn ? pn + ' et ' : '') + c.name + ' ! Vous avez gagné !'); else if (r.place) say('Bien joué ' + (pn || '') + ' !');
+  else say('Bravo ' + (pn || '') + ' !');
   panel(h, [['Retour à l\'écurie', toStable], ['Recommencer', () => { $('panel').hidden = true; startAct(actId); }, 1]]);
 }
 function pause(){
@@ -1140,7 +1149,7 @@ function toStable(){
   stAngT = stAng = 0; barnLight.intensity = .7;
   buildPaddock(); showSub(); refreshStable();
   const c = care();
-  tip(!save.seen ? 'Bienvenue au ranch ! Commence par brosser et seller ' + c.name + ', puis pars en balade.' : c.faim < 30 ? c.name + ' a faim !' : c.prop < 50 ? c.name + ' est tout sale : brosse-le !' : c.energie < 40 ? c.name + ' est fatigué.' : '');
+  tip(!save.seen ? 'Bienvenue au ranch' + (player() ? ', ' + player() : '') + ' ! Écris ton prénom à droite, puis brosse et selle ' + c.name + ' avant de partir en balade.' : c.faim < 30 ? c.name + ' a faim !' : c.prop < 50 ? c.name + ' est tout sale : brosse-le !' : c.energie < 40 ? c.name + ' est fatigué.' : '');
   save.seen = true; store();
 }
 function refreshStable(){
@@ -1152,6 +1161,11 @@ function refreshStable(){
   $('ptsLine').textContent = '🏅 ' + save.pts + ' points · 🎀 ' + save.ros + ' rosette' + (save.ros > 1 ? 's' : '');
 }
 $('hName').addEventListener('input', e => { care().name = e.target.value.trim() || curB().name; store(); });
+$('hName').addEventListener('blur', () => { $('hName').value = care().name; });
+$('pName').value = save.player || '';
+$('pName').addEventListener('input', e => { save.player = e.target.value; store(); });
+$('pName').addEventListener('change', () => { if (player()){ audio(); say('Bonjour ' + player() + ' !'); } });
+for (const id of ['hName', 'pName']) $(id).addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 function actButtons(){
   const mk = (id, el) => { const a = ACTS[id], btn = document.createElement('button'); btn.className = 'act';
     btn.innerHTML = '<span class="e">' + a.e + '</span><span><b>' + a.title + '</b><small>' + a.desc + (a.concours ? ' <em>1er : 100 pts</em>' : '') + '</small></span>';
